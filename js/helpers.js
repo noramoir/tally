@@ -52,7 +52,7 @@ async function dbSaveUser(u, d) { return dbSave("user_" + u, d); }
 
 // ═══ NEW DATABASE LAYER (tally_* tables) ═══
 // Set USE_NEW_DB = true once you've verified migration
-var USE_NEW_DB = true;
+var USE_NEW_DB = false;
 
 var db2 = {
   // ── Users ──
