@@ -49,7 +49,7 @@
 <script>
 // ─── Admin Config ────────────────────────────────
 // Set your admin password here (plain text for now, only you access this page)
-const ADMIN_PASSWORD = "mochalovesgames"; // CHANGE THIS!
+const ADMIN_PASSWORD = "admin123"; // CHANGE THIS!
 
 // ─── Supabase ────────────────────────────────────
 let sb = null;
@@ -58,6 +58,13 @@ try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); } catch(e) {}
 async function dbLoad(c) { if (!sb) return null; try { const { data } = await sb.from("family_games").select("games").eq("family_code", c).single(); return data?.games || null; } catch { return null; } }
 async function dbSave(c, g) { if (!sb) return; try { await sb.from("family_games").upsert({ family_code: c, games: g, updated_at: new Date().toISOString() }, { onConflict: "family_code" }); } catch {} }
 async function dbListAll() { if (!sb) return []; try { const { data } = await sb.from("family_games").select("family_code,games,updated_at").order("updated_at", { ascending: false }); return data || []; } catch { return []; } }
+
+// New table queries
+async function dbNewUsers() { if (!sb) return []; try { const { data } = await sb.from("tally_users").select("*").order("created_at", { ascending: false }); return data || []; } catch { return []; } }
+async function dbNewFamilies() { if (!sb) return []; try { const { data } = await sb.from("tally_families").select("*").order("created_at", { ascending: false }); return data || []; } catch { return []; } }
+async function dbNewGames(familyId) { if (!sb) return []; try { const { data } = await sb.from("tally_games").select("*").eq("family_id", familyId).order("finished_at", { ascending: false, nullsFirst: false }); return data || []; } catch { return []; } }
+async function dbNewTemplates(familyId) { if (!sb) return []; try { const { data } = await sb.from("tally_templates").select("*").eq("family_id", familyId); return data || []; } catch { return []; } }
+async function dbNewMembers(familyId) { if (!sb) return []; try { const { data } = await sb.from("tally_family_members").select("*, tally_users(username)").eq("family_id", familyId); return data || []; } catch { return []; } }
 
 // ─── State ───────────────────────────────────────
 let loggedIn = false;
@@ -168,6 +175,17 @@ function render() {
     `;
   }
 
+  else if (tab === "newdb") {
+    content = `
+      ${statusHtml}
+      <div class="card">
+        <p class="text-muted mb-8">New structured tables (tally_*). Verify migration data here before switching the app.</p>
+        <button class="small" onclick="loadNewDb()">🔍 Load New DB Data</button>
+      </div>
+      <div id="newdb-content"></div>
+    `;
+  }
+
   else if (tab === "editor") {
     content = `
       ${statusHtml}
@@ -217,8 +235,8 @@ function render() {
       <div class="flex"><button class="small secondary" onclick="refreshData()">🔄 Refresh</button><button class="small secondary" onclick="loggedIn=false;render()">Logout</button></div>
     </div>
     <div class="tabs">
-      ${["overview","users","families","templates"].map(t =>
-        `<div class="tab ${tab===t?'tab-active':'tab-inactive'}" onclick="tab='${t}';render()">${t.charAt(0).toUpperCase()+t.slice(1)}</div>`
+      ${["overview","users","families","templates","newdb"].map(t =>
+        `<div class="tab ${tab===t?'tab-active':'tab-inactive'}" onclick="tab='${t}';render()">${t==='newdb'?'New DB':t.charAt(0).toUpperCase()+t.slice(1)}</div>`
       ).join("")}
     </div>
     ${content}
@@ -284,6 +302,37 @@ async function deleteGame(familyCode, gameId) {
   editingKey = familyCode;
   tab = "games";
   render();
+}
+
+async function loadNewDb() {
+  const el = document.getElementById("newdb-content");
+  el.innerHTML = "<p class='text-muted'>Loading...</p>";
+  const [users, families] = await Promise.all([dbNewUsers(), dbNewFamilies()]);
+
+  let html = `<h2>Users (${users.length})</h2><table><thead><tr><th>ID</th><th>Username</th><th>Display</th><th>PIN</th><th>Created</th></tr></thead><tbody>`;
+  users.forEach(u => {
+    const pinOk = u.pin_hash && u.pin_hash.length === 64;
+    html += `<tr><td>${u.id}</td><td><strong>${u.username}</strong></td><td>${u.display_name}</td><td>${pinOk?'<span class="badge badge-green">hashed</span>':'<span class="badge badge-red">issue</span>'}</td><td style="font-size:11px">${new Date(u.created_at).toLocaleDateString()}</td></tr>`;
+  });
+  html += "</tbody></table>";
+
+  html += `<h2>Families (${families.length})</h2>`;
+  for (const f of families) {
+    const [games, templates, members] = await Promise.all([dbNewGames(f.id), dbNewTemplates(f.id), dbNewMembers(f.id)]);
+    html += `<div class="card"><div style="font-weight:900;font-size:16px;margin-bottom:8px">${f.code}</div>`;
+    html += `<div class="text-muted">${members.length} members · ${games.length} games · ${templates.length} templates</div>`;
+    if (members.length) {
+      html += `<div style="margin-top:8px;font-size:12px"><strong>Members:</strong> ${members.map(m => m.display_name + (m.tally_users ? ' (@'+m.tally_users.username+')' : '')).join(", ")}</div>`;
+    }
+    if (templates.length) {
+      html += `<div style="margin-top:4px;font-size:12px"><strong>Templates:</strong> ${templates.map(t => t.emoji+' '+t.name+' (T'+t.tier+')').join(", ")}</div>`;
+    }
+    if (games.length) {
+      html += `<div style="margin-top:4px;font-size:12px"><strong>Games:</strong> ${games.filter(g=>g.finished).length} finished, ${games.filter(g=>!g.finished).length} active</div>`;
+    }
+    html += "</div>";
+  }
+  el.innerHTML = html;
 }
 
 // ─── Init ────────────────────────────────────────
