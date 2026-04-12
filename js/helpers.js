@@ -353,64 +353,97 @@ function playSound(type) {
 }
 
 // ─── Leaderboard Builder ─────────────────────────
+// Accumulation model: points earned per game, no ceiling.
+// Placement points (before tier multiplier):
+//   1st: 10, 2nd: 8, 3rd: 5, 4th+: 3 (participation)
+//   Independent winner: 5
+// Ties split placement points equally.
+// Team members split placement points by team size.
+// Winners/2nd/3rd do NOT also get participation.
+
+var PLACEMENT_PTS = [10, 8, 5]; // 1st, 2nd, 3rd
+var PARTICIPATION_PTS = 3;      // 4th+
+var INDIE_WIN_PTS = 5;          // independent game leader
+
 function buildLeaderboard(history, fu) {
   fu = fu || {};
   var players = {};
 
+  function ensure(k, dn) {
+    if (!players[k]) players[k] = { name: dn, key: k, points: 0, wins: 0, games: 0 };
+    players[k].name = dn;
+  }
+
+  // ── Standard & team games ──
   history.forEach(function(game) {
     if (!game.finished || game.scoringType === "independent") return;
+    var tier = game.tier || DEFAULT_TIER;
 
     if (game.teamMode && game.teams) {
+      // Build team totals and sort by placement
       var tt = teamTotals(game);
-      var sorted = tt.slice().sort(function(a, b) { return game.lowWins ? (a.total - b.total) : (b.total - a.total); });
-      var winTotal = sorted[0] ? sorted[0].total : 0;
+      var sorted = tt.slice().sort(function(a, b) {
+        return game.lowWins ? (a.total - b.total) : (b.total - a.total);
+      });
+
+      // Assign placement ranks with tie handling
+      var teamPlacements = assignPlacements(sorted, function(t) { return t.total; });
 
       tt.forEach(function(team) {
         var sz = Math.max(1, team.members.length);
-        var isWin = team.total === winTotal;
+        // Find this team's placement info
+        var pl = null;
+        for (var i = 0; i < teamPlacements.length; i++) {
+          if (teamPlacements[i].item.name === team.name) { pl = teamPlacements[i]; break; }
+        }
+        if (!pl) return;
+        var ptsPerMember = (pl.pts * tier) / sz;
+
         team.members.forEach(function(memberName) {
+          // Resolve userId
           var uid = null;
           for (var gi = 0; gi < history.length; gi++) {
-            var g2 = history[gi];
-            var found = g2.players.find(function(p) { return p.name === memberName && p.userId; });
+            var found = history[gi].players.find(function(p) { return p.name === memberName && p.userId; });
             if (found) { uid = found.userId; break; }
           }
           var k = uid || memberName;
           var dn = uid && fu[uid] ? fu[uid].displayName : memberName;
-          if (!players[k]) players[k] = { name: dn, key: k, wins: 0, games: 0, totalScore: 0, wWins: 0, wGames: 0 };
-          players[k].name = dn;
-          var tier = game.tier || DEFAULT_TIER;
+          ensure(k, dn);
           players[k].games += 1;
-          players[k].wGames += tier;
-          players[k].totalScore += Math.round(team.total / sz) * tier;
-          if (isWin) { players[k].wins += 1/sz; players[k].wWins += tier/sz; }
+          players[k].points += ptsPerMember;
+          if (pl.rank === 1) players[k].wins += 1 / sz;
         });
       });
     } else {
-      var scores = game.players.map(calcTotal);
-      var maxT = Math.max.apply(null, scores);
-      var minT = Math.min.apply(null, scores);
-      var winT = game.lowWins ? minT : maxT;
+      // Individual game
+      var scored = game.players.map(function(p) {
+        return { player: p, total: calcTotal(p) };
+      });
+      var sorted = scored.slice().sort(function(a, b) {
+        return game.lowWins ? (a.total - b.total) : (b.total - a.total);
+      });
 
-      game.players.forEach(function(p) {
+      var placements = assignPlacements(sorted, function(s) { return s.total; });
+
+      placements.forEach(function(pl) {
+        var p = pl.item.player;
         var k = pkey(p), dn = rname(p, fu);
-        if (!players[k]) players[k] = { name: dn, key: k, wins: 0, games: 0, totalScore: 0, wWins: 0, wGames: 0 };
-        players[k].name = dn;
-        var tier = game.tier || DEFAULT_TIER;
+        ensure(k, dn);
         players[k].games += 1;
-        players[k].wGames += tier;
-        players[k].totalScore += calcTotal(p) * tier;
-        if (calcTotal(p) === winT) { players[k].wins += 1; players[k].wWins += tier; }
+        players[k].points += pl.pts * tier;
+        if (pl.rank === 1) players[k].wins += 1;
       });
     }
   });
 
-  // Independent game leaders
+  // ── Independent game leaders ──
+  // For each independent game, find the leader(s) using effective score,
+  // award INDIE_WIN_PTS × tier (split if tied)
   var indGames = {};
   history.forEach(function(g) {
     if (!g.finished || g.scoringType !== "independent") return;
     var k = g.gameKey === "custom" ? gameName(g) : g.gameKey;
-    if (!indGames[k]) indGames[k] = { entries: {} };
+    if (!indGames[k]) indGames[k] = { entries: {}, tier: g.tier || DEFAULT_TIER };
     g.players.forEach(function(p) {
       var sc = parseFloat(p.scores && p.scores.Score) || 0;
       var pk = pkey(p);
@@ -424,64 +457,71 @@ function buildLeaderboard(history, fu) {
     var best = -1, effs = {};
     Object.entries(ig.entries).forEach(function(e) {
       var n = e[0], total = e[1].total, count = e[1].count;
-      var eff = (total/count) * Math.min(1, count/INDIE_VOLUME_CAP);
+      var eff = (total / count) * Math.min(1, count / INDIE_VOLUME_CAP);
       effs[n] = eff;
       if (eff > best) best = eff;
     });
     if (best <= 0) return;
+    // Count how many tied for best
+    var tiedKeys = [];
     Object.entries(effs).forEach(function(e) {
-      var n = e[0], eff = e[1];
-      if (Math.abs(eff - best) < 0.001) {
-        if (!players[n]) players[n] = { name: ig.entries[n] ? ig.entries[n].name : n, key: n, wins: 0, games: 0, totalScore: 0, wWins: 0, wGames: 0 };
-        players[n].wins += 1; players[n].games += 1;
-        players[n].wWins += 1; players[n].wGames += 1;
-      }
+      if (Math.abs(e[1] - best) < 0.001) tiedKeys.push(e[0]);
+    });
+    var tiedCount = tiedKeys.length;
+    tiedKeys.forEach(function(n) {
+      var dn = ig.entries[n] ? ig.entries[n].name : n;
+      ensure(n, dn);
+      players[n].points += (INDIE_WIN_PTS / tiedCount) * ig.tier;
+      players[n].wins += 1 / tiedCount;
+      players[n].games += 1;
     });
   });
 
   return Object.values(players).map(function(p) {
     return {
       name: p.name, key: p.key,
+      points: Math.round(p.points * 100) / 100,
       wins: Math.round(p.wins * 100) / 100,
       games: p.games,
-      wWins: p.wWins, wGames: p.wGames,
-      winRate: p.wGames > 0 ? p.wWins / p.wGames : 0,
-      avgScore: p.games > 0 ? Math.round(p.totalScore / p.games) : 0,
+      // Keep winRate for any display that needs it
+      winRate: p.games > 0 ? p.wins / p.games : 0,
     };
   });
 }
 
-function buildIndependentRankings(history, gameKey, fu) {
-  fu = fu || {};
-  var players = {};
-  history.forEach(function(g) {
-    if (!g.finished || g.scoringType !== "independent") return;
-    var k = g.gameKey === "custom" ? gameName(g) : g.gameKey;
-    if (k !== gameKey) return;
-    g.players.forEach(function(p) {
-      var sc = parseFloat(p.scores && p.scores.Score) || 0;
-      var pk = pkey(p), dn = rname(p, fu);
-      if (!players[pk]) players[pk] = { name: dn, total: 0, count: 0, lastPlayed: null };
-      players[pk].name = dn; players[pk].total += sc; players[pk].count += 1;
-      var d = g.finishedAt || g.startedAt;
-      if (!players[pk].lastPlayed || d > players[pk].lastPlayed) players[pk].lastPlayed = d;
-    });
-  });
-  var ms = DEFAULT_MAX_SCORE;
-  var found = history.find(function(g) {
-    var k = g.gameKey === "custom" ? gameName(g) : g.gameKey;
-    return k === gameKey && g.scoringType === "independent";
-  });
-  if (found && found.maxScore) ms = found.maxScore;
+// ── Placement assigner with tie splitting ──
+// Takes a sorted array and a value function.
+// Returns array of { item, rank, pts } where pts accounts for tie splits.
+function assignPlacements(sorted, valFn) {
+  var result = [];
+  var i = 0;
+  while (i < sorted.length) {
+    // Find all items tied at this position
+    var tieStart = i;
+    var tieVal = valFn(sorted[i]);
+    while (i < sorted.length && Math.abs(valFn(sorted[i]) - tieVal) < 0.001) {
+      i++;
+    }
+    var tieCount = i - tieStart;
+    var rank = tieStart + 1; // 1-indexed rank
 
-  return Object.values(players).map(function(p) {
-    return {
-      name: p.name, total: p.total, count: p.count, lastPlayed: p.lastPlayed,
-      avg: p.count > 0 ? p.total / p.count : 0,
-      effective: p.count > 0 ? (p.total / p.count) * Math.min(1, p.count / INDIE_VOLUME_CAP) : 0,
-      maxScore: ms,
-    };
-  }).sort(function(a, b) { return b.effective - a.effective; });
+    // Calculate points: average the placement points across tied positions
+    // e.g. 2 tied for 1st: each gets PLACEMENT_PTS[0] / 2
+    // e.g. 2 tied for 2nd: each gets PLACEMENT_PTS[1] / 2
+    var pts;
+    if (rank <= 3) {
+      // All tied players are in a podium position
+      pts = (PLACEMENT_PTS[rank - 1] || PARTICIPATION_PTS) / tieCount;
+    } else {
+      // 4th+ all get participation
+      pts = PARTICIPATION_PTS;
+    }
+
+    for (var j = tieStart; j < i; j++) {
+      result.push({ item: sorted[j], rank: rank, pts: pts });
+    }
+  }
+  return result;
 }
 
 // ─── New Game Creator ────────────────────────────
