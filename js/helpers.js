@@ -496,6 +496,14 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
   var tier = TIER_OVERRIDES[gn] || def.tier || DEFAULT_TIER;
   var myName = user && fu && fu[user.userId] ? fu[user.userId].displayName : (user ? user.displayName : null);
 
+  // Build reverse map: displayName -> userId, covering all known family members
+  var nameToUserId = {};
+  if (fu) {
+    Object.entries(fu).forEach(function([uid, u]) { if (u.displayName) nameToUserId[u.displayName] = uid; });
+  }
+  // Ensure the current user is always included even if not yet in familyUsers
+  if (user && myName) nameToUserId[myName] = user.userId;
+
   var players;
   if (tm && teams) {
     players = teams.map(function(t) {
@@ -503,7 +511,7 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
     });
   } else {
     players = pn.map(function(n) {
-      return { name: n, scores: Object.fromEntries(categories.map(function(c) { return [c, ""]; })), userId: user && n === myName ? user.userId : undefined };
+      return { name: n, scores: Object.fromEntries(categories.map(function(c) { return [c, ""]; })), userId: nameToUserId[n] || undefined };
     });
   }
 
