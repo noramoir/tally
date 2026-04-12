@@ -252,10 +252,19 @@ function SetupScreen({state,dispatch}){
   const[solo,setSolo]=useState(()=>myName?[myName]:[]);const[newName,setNewName]=useState("");
   const[scoringType,setScoringType]=useState("standard");const[maxScoreInput,setMaxScoreInput]=useState("10");const[lowWins,setLowWins]=useState(false);
   const[deleteTarget,setDeleteTarget]=useState(null);const lp=useRef(null);const pc=useRef(false);
+  const[gameFilter,setGameFilter]=useState("recent");
   function hpd(k){if(BUILT_IN_GAMES[k])return;pc.current=false;lp.current=setTimeout(()=>{pc.current=true;setDeleteTarget(k)},600)}function hpu(){clearTimeout(lp.current)}
   const lastPlayed={};state.history.forEach(g=>{const k=g.gameKey==="custom"?gameName(g):g.gameKey;if(!lastPlayed[k])lastPlayed[k]=g.finishedAt||g.startedAt});
+  const playCount={};state.history.forEach(g=>{if(!g.finished)return;const k=g.gameKey==="custom"?gameName(g):g.gameKey;playCount[k]=(playCount[k]||0)+1});
   const allGames={...BUILT_IN_GAMES};Object.entries(state.templates||{}).forEach(([k,t])=>{allGames[k]={...t,name:t.name||t.gameName||k}});
-  const gameList=Object.entries(allGames).sort(([ka],[kb])=>{const ta=lastPlayed[ka]||null,tb=lastPlayed[kb]||null;if(ta&&tb)return new Date(tb)-new Date(ta);if(ta)return -1;if(tb)return 1;return 0});
+  const gameListAll=Object.entries(allGames).filter(([k])=>k!=="custom");
+  const sortedGames=gameFilter==="alpha"
+    ?[...gameListAll].sort(([,a],[,b])=>a.name.localeCompare(b.name))
+    :gameFilter==="popular"
+    ?[...gameListAll].sort(([ka],[kb])=>{const ca=playCount[ka]||0,cb=playCount[kb]||0;if(cb!==ca)return cb-ca;return a_name_cmp(allGames[ka],allGames[kb])})
+    :[...gameListAll].sort(([ka],[kb])=>{const ta=lastPlayed[ka]||null,tb=lastPlayed[kb]||null;if(ta&&tb)return new Date(tb)-new Date(ta);if(ta)return -1;if(tb)return 1;return 0});
+  function a_name_cmp(a,b){return(a.name||"").localeCompare(b.name||"")}
+  const gameList=[["custom",allGames["custom"]||{name:"Custom Game",emoji:"✏️"}],...sortedGames];
   const knownPlayersRaw=state.history.flatMap(g=>{if(g.teams)return g.teams.flatMap(t=>t.members);return g.players.map(p=>rname(p,fu))});
   const knownPlayersSeen={};const knownPlayers=[];
     knownPlayersRaw.forEach(function(n){const key=n.trim().toLowerCase();if(!knownPlayersSeen[key]){knownPlayersSeen[key]=n;knownPlayers.push(n)}});
@@ -269,10 +278,13 @@ function SetupScreen({state,dispatch}){
   function addNew(){const n=newName.trim();if(!n)return;setNewName("");if(teamMode){const ti=teams.slice(0,numTeams).reduce((mi,t,i,arr)=>t.members.length<arr[mi].members.length?i:mi,0);setTeams(prev=>prev.map((t,i)=>i===ti?{...t,members:[...t.members,n]}:t))}else{setSolo(p=>p.includes(n)?p:[...p,n])}}
   const activeTeams=teams.slice(0,numTeams).filter(t=>t.members.length>0);const validCats=cats.map((c,i)=>c.trim()||`Round ${i+1}`);
   const canStart=gameKey&&(teamMode?activeTeams.length>=2:solo.length>=1);
+  const filterIcon=<svg width="14" height="14" viewBox="0 0 14 14" style={{verticalAlign:"middle",marginRight:4}}><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="5" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>;
+  const filters=[{id:"recent",label:"Recent"},{id:"alpha",label:"A–Z"},{id:"popular",label:"Popular"}];
   return(<div style={{padding:"20px 20px 100px"}}>
     <TopBar title="New Game" onBack={()=>dispatch({type:"GO",screen:"home"})}/>
     <h3 style={secHead}>Choose Game</h3>
-    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>{gameList.map(([k,g])=>{const isBI=!!BUILT_IN_GAMES[k];return(<div key={k} onClick={()=>pickGame(k)} onPointerDown={()=>hpd(k)} onPointerUp={hpu} onPointerLeave={hpu} onPointerCancel={hpu} onContextMenu={e=>{if(!isBI)e.preventDefault()}} style={{...S.card,background:gameKey===k?C.tomato:C.card,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,userSelect:"none",WebkitUserSelect:"none"}}><span style={{fontSize:26}}>{g.emoji}</span><div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,fontFamily:"Georgia,serif",color:gameKey===k?C.white:C.ink}}>{g.name}{g.scoringType==="independent"?<span style={{fontSize:11,opacity:0.7,marginLeft:6}}>(scored)</span>:""}</div><div style={{fontSize:11,color:gameKey===k?"rgba(255,255,255,0.8)":C.muted,marginTop:2}}>{lastPlayed[k]?`Last played ${new Date(lastPlayed[k]).toLocaleDateString()}`:"Not played yet"}{!isBI&&<span style={{marginLeft:6,opacity:0.5}}>· hold to delete</span>}</div></div>{gameKey===k&&<span style={{color:C.white,fontWeight:700}}>✓</span>}</div>)})}</div>
+    <div style={{display:"flex",gap:6,marginBottom:12}}>{filters.map(f=><button key={f.id} onClick={()=>setGameFilter(f.id)} style={{display:"flex",alignItems:"center",background:gameFilter===f.id?C.ink:C.card,color:gameFilter===f.id?C.white:C.ink,border:"2px solid "+C.ink,borderRadius:16,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{gameFilter===f.id&&filterIcon}{f.label}</button>)}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>{gameList.map(([k,g])=>{const isCustom=k==="custom";const isBI=!!BUILT_IN_GAMES[k];const isSelected=gameKey===k;const cardBg=isSelected?C.tomato:isCustom?C.lime:C.card;const subtextColor=isSelected?"rgba(255,255,255,0.8)":isCustom?C.muted:C.muted;const mainColor=isSelected?C.white:C.ink;return(<div key={k} onClick={()=>pickGame(k)} onPointerDown={()=>hpd(k)} onPointerUp={hpu} onPointerLeave={hpu} onPointerCancel={hpu} onContextMenu={e=>{if(!isBI&&!isCustom)e.preventDefault()}} style={{...S.card,background:cardBg,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,userSelect:"none",WebkitUserSelect:"none"}}><span style={{fontSize:26}}>{g.emoji}</span><div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,fontFamily:"Georgia,serif",color:mainColor}}>{isCustom?"✨ Custom Game":g.name}{!isCustom&&g.scoringType==="independent"?<span style={{fontSize:11,opacity:0.7,marginLeft:6}}>(scored)</span>:""}</div><div style={{fontSize:11,color:subtextColor,marginTop:2}}>{isCustom?"Create your own game":(lastPlayed[k]?`Last played ${new Date(lastPlayed[k]).toLocaleDateString()}`:"Not played yet")+(playCount[k]?` · ${playCount[k]}×`:"")}{!isBI&&!isCustom&&<span style={{marginLeft:6,opacity:0.5}}>· hold to delete</span>}</div></div>{isSelected&&<span style={{color:C.white,fontWeight:700}}>✓</span>}</div>)})}</div>
     {gameKey==="custom"&&<div style={{...S.limeCard,padding:16,marginBottom:24}}>
       <h3 style={{...secHead,marginBottom:10}}>Custom Game</h3>
       <div style={{display:"flex",gap:8,marginBottom:8}}><button onClick={()=>setShowPick(p=>!p)} style={{fontSize:24,background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"10px 12px",cursor:"pointer"}}>{custEmoji}</button><input style={{...inp,flex:1}} placeholder="Game name" value={custName} onChange={e=>setCustName(e.target.value)}/></div>
