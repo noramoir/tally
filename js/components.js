@@ -37,7 +37,7 @@ function App() {
           tplRows.forEach(function(t) {
             tplObj[t.template_key] = { gameKey: t.game_key, name: t.name, gameName: t.name, emoji: t.emoji, categories: t.categories, scoringType: t.scoring_type, tier: t.tier, maxScore: t.max_score, lowWins: t.low_wins };
           });
-          if (Object.keys(tplObj).length) dispatch({ type: "SYNC_TEMPLATES", templates: tplObj });
+          dispatch({ type: "SYNC_TEMPLATES", templates: tplObj, replace: true });
           // Convert members to familyUsers map
           const fuMap = {};
           members.forEach(function(m) {
