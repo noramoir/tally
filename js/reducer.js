@@ -163,8 +163,8 @@ function reducer(state, action) {
       return Object.assign({}, state, { history: action.history });
 
     case "SYNC_TEMPLATES":
-      return Object.assign({}, state, { templates: Object.assign({}, state.templates, action.templates) });
-
+case "SYNC_TEMPLATES":
+  return Object.assign({}, state, { templates: action.replace ? action.templates : Object.assign({}, state.templates, action.templates) });
     default:
       return state;
   }
