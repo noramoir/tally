@@ -562,6 +562,7 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
     scoringType: isInd ? "independent" : "standard",
     maxScore: maxScore, lowWins: lowWins, tier: tier,
   };
+}
 // ─── Independent Game Rankings ───────────────────
 function buildIndependentRankings(history, gameKey, fu) {
   fu = fu || {};
@@ -588,4 +589,4 @@ function buildIndependentRankings(history, gameKey, fu) {
     var effective = avg * Math.min(1, e.count / INDIE_VOLUME_CAP);
     return { name: e.name, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
   }).sort(function(a, b) { return b.effective - a.effective; });
-}}
+}
