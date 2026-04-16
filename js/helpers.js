@@ -562,4 +562,30 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
     scoringType: isInd ? "independent" : "standard",
     maxScore: maxScore, lowWins: lowWins, tier: tier,
   };
-}
+// ─── Independent Game Rankings ───────────────────
+function buildIndependentRankings(history, gameKey, fu) {
+  fu = fu || {};
+  var entries = {};
+  var maxScore = 50;
+  history.forEach(function(g) {
+    if (!g.finished || g.scoringType !== "independent") return;
+    var gk = g.gameKey === "custom" ? gameName(g) : g.gameKey;
+    if (gk !== gameKey) return;
+    if (g.maxScore) maxScore = g.maxScore;
+    g.players.forEach(function(p) {
+      var k = pkey(p);
+      var dn = rname(p, fu);
+      var sc = parseFloat(p.scores && p.scores.Score) || 0;
+      if (!entries[k]) entries[k] = { name: dn, total: 0, count: 0, lastPlayed: null };
+      entries[k].total += sc;
+      entries[k].count += 1;
+      var d = g.finishedAt || g.startedAt;
+      if (!entries[k].lastPlayed || d > entries[k].lastPlayed) entries[k].lastPlayed = d;
+    });
+  });
+  return Object.values(entries).map(function(e) {
+    var avg = e.count > 0 ? e.total / e.count : 0;
+    var effective = avg * Math.min(1, e.count / INDIE_VOLUME_CAP);
+    return { name: e.name, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
+  }).sort(function(a, b) { return b.effective - a.effective; });
+}}
