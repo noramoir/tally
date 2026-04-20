@@ -1,0 +1,51 @@
+name: Validate HTML & JS
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JS/JSX syntax
+        run: |
+          npm install --no-save @babel/parser
+          errors=0
+
+          for file in $(find . -name '*.js' -not -path '*/node_modules/*'); do
+            # Try plain node syntax check first
+            if node --check "$file" 2>/dev/null; then
+              echo "✓ $file"
+            else
+              # Fall back to Babel parser (handles JSX)
+              if node -e "
+                const fs = require('fs');
+                const { parse } = require('@babel/parser');
+                const code = fs.readFileSync('$file', 'utf8');
+                parse(code, { sourceType: 'script', plugins: ['jsx'] });
+              " 2>&1; then
+                echo "✓ $file (JSX)"
+              else
+                echo "✗ $file"
+                errors=$((errors + 1))
+              fi
+            fi
+          done
+
+          if [ $errors -ne 0 ]; then
+            echo "Found syntax errors in $errors file(s)"
+            exit 1
+          fi
+          echo "All JS files passed syntax check"
+
+      - name: Validate HTML
+        run: |
+          npm install --no-save htmlhint
+          npx htmlhint '**/*.html' --ignore 'node_modules/**'
