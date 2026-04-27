@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════
 
 const { useState, useEffect, useReducer, useCallback, useRef } = React;
+const MNAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 /* ═══ App ═══ */
 function App() {
@@ -223,8 +224,8 @@ function TimerScreen({ timerProps }) {
 
 /* ═══ Home ═══ */
 function HomeScreen({ state, dispatch }) {
-  const fu = state.familyUsers || {}; const lb = buildLeaderboard(state.history, fu);
-const top = [...lb].sort((a, b) => b.points - a.points)[0];
+  const fu = state.familyUsers || {}; const now = new Date(); const lb = buildLeaderboardForMonth(state.history, fu, now.getFullYear(), now.getMonth());
+const top = [...lb].sort((a, b) => b.points - a.points)[0]; const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
   const myName = state.user && fu[state.user.userId] ? fu[state.user.userId].displayName : ((state.user && state.user.displayName) || null);
   return (<div style={{ padding: "20px 20px 80px" }}>
     <h1 style={{ textAlign: "center", fontSize: 34, margin: "24px 0 4px", fontFamily: "Georgia,serif", fontWeight: 900, letterSpacing: -1 }}>🎲 Tally</h1>
@@ -233,7 +234,7 @@ const top = [...lb].sort((a, b) => b.points - a.points)[0];
     {state.family && <p style={{ textAlign: "center", color: C.muted, fontSize: 12, marginBottom: 8 }}>👨‍👩‍👧 <b style={{ color: C.card }}>{state.family}</b></p>}
     {!state.family && <div style={{ ...S.limeCard, padding: "14px 18px", marginBottom: 12, textAlign: "center", cursor: "pointer" }} onClick={() => dispatch({ type: "GO", screen: "family" })}><div style={{ fontSize: 14, fontWeight: 700 }}>👨‍👩‍👧 Join a Family Space to start</div></div>}
     <div style={{ ...S.limeCard, padding: "14px 18px", marginBottom: 12, textAlign: "center", cursor: "pointer" }} onClick={() => dispatch({ type: "GO", screen: "setup" })}><div style={{ fontSize: 28, fontWeight: 900, fontFamily: "Georgia,serif" }}>+ New Game</div><div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Tap to start playing</div></div>
-    {top && <div style={{ background: C.tomato, border: "2px solid " + C.ink, borderRadius: 14, boxShadow: "3px 3px 0 " + C.ink, padding: "14px 18px", marginBottom: 20, textAlign: "center" }}><div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: 2 }}>⭐ TOP PLAYER</div><div style={{ fontSize: 24, fontWeight: 900, fontFamily: "Georgia,serif", color: C.white }}>{top.name}</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{top.points} pts · {top.wins} wins</div></div>}
+    {top && <div style={{ background: C.tomato, border: "2px solid " + C.ink, borderRadius: 14, boxShadow: "3px 3px 0 " + C.ink, padding: "14px 18px", marginBottom: 20, textAlign: "center" }}><div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: 2 }}>⭐ {MNAMES[now.getMonth()]} Top Player ⭐</div><div style={{ fontSize: 24, fontWeight: 900, fontFamily: "Georgia,serif", color: C.white }}>{top.name}</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left to take the trophy</div></div>}
     {state.history.length > 0 && <><h3 style={{ ...secHead, marginTop: 20 }}>Recent Games</h3>{state.history.slice(0, 3).map(g => { const w = getWinner(g); const wName = (w && w.members) ? w.name : rname(w, fu); const wPts = (w && w.members) ? w.total : calcTotal(w); return (<div key={g.id} onClick={() => dispatch({ type: "GO", screen: "historyDetail", id: g.id })} style={{ ...S.card, padding: "14px 16px", marginBottom: 10, cursor: "pointer" }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontFamily: "Georgia,serif", fontWeight: 700 }}>{gameEmoji(g)} {gameName(g)}</span><span style={{ color: C.muted, fontSize: 11 }}>{new Date(g.finishedAt || g.startedAt).toLocaleDateString()}</span></div><div style={{ color: C.tomato, fontSize: 13, fontWeight: 700 }}>🏆 {wName} — {wPts} pts</div></div>); })}</>}
   </div>);
 }
@@ -384,7 +385,170 @@ function GameScreen({state,dispatch,finishGame}){const game=state.current;const[
 
 function CaptureScores({game,dispatch,finishGame,catIdx,setCatIdx,onBack,lowWins}){const isInd=game.scoringType==="independent";const isTeam=game.teamMode&&game.teams;const cat=game.categories[catIdx]||game.categories[0];const maxVal=isInd?(game.maxScore||50):Infinity;return(<div style={{padding:"0 0 140px"}}><div onClick={onBack} style={{background:C.lime,color:C.ink,textAlign:"center",padding:"14px",fontSize:15,fontWeight:900,cursor:"pointer",borderBottom:"2px solid "+C.ink}}>🏆 Live Score Overview</div>{game.categories.length>1&&<div style={{textAlign:"center",padding:"16px 20px 8px"}}><div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:2}}>Scoring Category</div><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12}}><button onClick={()=>setCatIdx(i=>(i-1+game.categories.length)%game.categories.length)} style={{width:40,height:40,borderRadius:20,border:"2px solid "+C.ink,background:C.card,fontSize:18,cursor:"pointer",fontWeight:900}}>◀</button><div style={{minWidth:120}}><div style={{fontSize:18,fontWeight:900,fontFamily:"Georgia,serif"}}>{cat}</div><div style={{fontSize:11,color:C.muted}}>{catIdx+1} of {game.categories.length}</div></div><button onClick={()=>setCatIdx(i=>(i+1)%game.categories.length)} style={{width:40,height:40,borderRadius:20,border:"2px solid "+C.ink,background:C.card,fontSize:18,cursor:"pointer",fontWeight:900}}>▶</button></div></div>}{lowWins&&<div style={{textAlign:"center",padding:"8px 16px",fontSize:11,color:C.muted}}>⬇️ Lowest score wins</div>}<div style={{padding:"12px 16px"}}>{game.players.map((p,pi)=>{const ci=isTeam?game.teams.findIndex(t=>t.name===p.name):pi;const dark=TC[ci%TC.length];const light=TCL[ci%TCL.length];const score=parseFloat(p.scores[cat])||0;const teamMembers=isTeam?(game.teams[ci] && game.teams[ci].members):null;return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:12,marginBottom:8,background:pi%2===0?C.card:C.white,border:"2px solid "+C.ink}}><div style={{flex:1,minWidth:0}}><div style={{fontWeight:900,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>{teamMembers&&<div style={{fontSize:10,color:C.muted}}>{teamMembers.join(", ")}</div>}</div><button onClick={()=>{if(score>0)dispatch({type:"SET_SCORE",pi,cat,val:String(Math.max(0,score-1))})}} style={{width:44,height:44,borderRadius:10,border:"2px solid "+C.ink,background:light,color:C.ink,fontSize:22,fontWeight:900,cursor:score<=0?"not-allowed":"pointer",opacity:score<=0?0.4:1,flexShrink:0}}>−</button><button onClick={()=>{if(score<maxVal)dispatch({type:"SET_SCORE",pi,cat,val:String(Math.min(maxVal,score+1))})}} style={{width:44,height:44,borderRadius:10,border:"2px solid "+C.ink,background:dark,color:C.white,fontSize:22,fontWeight:900,cursor:score>=maxVal?"not-allowed":"pointer",opacity:score>=maxVal?0.4:1,flexShrink:0}}>+</button><input type="number" inputMode="decimal" step="any" value={p.scores[cat]} onChange={e=>dispatch({type:"SET_SCORE",pi,cat,val:e.target.value})} style={{width:64,background:C.white,border:"2px solid "+C.ink,borderRadius:10,color:C.ink,textAlign:"center",padding:"10px 4px",fontSize:16,fontWeight:900,flexShrink:0}}/></div>)})}</div><div style={{padding:"16px",position:"fixed",bottom:56,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.card,borderTop:"3px solid "+C.ink}}><Btn full primary onClick={()=>{onBack();finishGame()}}>✅ Finish {"&"} Save</Btn></div></div>);}
 
-function LeaderboardScreen({state}){const fu=state.familyUsers||{};const[tab,setTab]=useState("topPlayer");const[indGame,setIndGame]=useState(null);const lb=buildLeaderboard(state.history,fu);const indGameKeys={};state.history.forEach(g=>{if(g.finished&&g.scoringType==="independent"){const k=g.gameKey==="custom"?gameName(g):g.gameKey;if(!indGameKeys[k])indGameKeys[k]={name:gameName(g),emoji:gameEmoji(g)}}});Object.entries(state.templates||{}).forEach(([k,t])=>{if(t.scoringType==="independent"&&!indGameKeys[k])indGameKeys[k]={name:t.name||t.gameName||k,emoji:t.emoji||"⭐"}});const indList=Object.entries(indGameKeys);const activeInd=indGame||(indList[0] ? indList[0][0] : null)||null;const tabs=[{id:"topPlayer",icon:"⭐",label:"Top",sort:(a,b)=>b.points-a.points,val:p=>`${p.points}pts`,sub:"Total points"},{id:"mostWins",icon:"🏆",label:"Wins",sort:(a,b)=>b.wins-a.wins,val:p=>`${p.wins%1===0?p.wins:p.wins.toFixed(2)}W`,sub:"Total wins"},{id:"topTime",icon:"🎮",label:"Games",sort:(a,b)=>b.games-a.games,val:p=>`${p.games}G`,sub:"Most played"},{id:"independent",icon:"⭐",label:"Scored",sort:null,val:null,sub:"Independent scoring"}];const cur=tabs.find(t=>t.id===tab);if(!lb.length&&!indList.length)return<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:16}}>🏆 Leaderboard</h2><p style={{color:C.muted,textAlign:"center",marginTop:60}}>Play some games first!</p></div>;const sorted=lb.length&&cur.sort?[...lb].sort(cur.sort):[];const ranks=sorted.length?getRanks(sorted,p=>tab==="topPlayer"?p.points:tab==="mostWins"?p.wins:p.games):[];const indR=tab==="independent"&&activeInd?buildIndependentRankings(state.history,activeInd,fu):[];const indRanks=indR.length?getRanks(indR,p=>p.effective):[];return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:16}}>🏆 Leaderboard</h2><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:12,marginBottom:20}}>{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flexShrink:0,background:tab===t.id?C.tomato:C.card,border:"2px solid "+C.ink,color:tab===t.id?C.white:C.ink,borderRadius:20,padding:"8px 14px",fontSize:12,cursor:"pointer",fontWeight:700,boxShadow:tab===t.id?"2px 2px 0 "+C.ink:"none"}}>{t.icon} {t.label}</button>)}</div>{tab!=="independent"&&sorted.length>0&&<>{sorted.length>=3&&(()=>{const po=[sorted[1],sorted[0],sorted[2]];const pr=[ranks[1],ranks[0],ranks[2]];const baseH={1:130,2:90,3:75};const heights=pr.map(r=>baseH[r]||60);const bgs=[C.bg,C.lime,C.card];return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8,marginBottom:24,height:150}}>{po.map((p,ri)=><div key={p.key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end"}}><div style={{fontSize:12,textAlign:"center",fontWeight:700,marginBottom:2}}>{p.name}</div><div style={{fontSize:12,color:C.tomato,fontWeight:900,marginBottom:4}}>{cur.val(p)}</div><div style={{width:"100%",height:heights[ri],background:bgs[ri],border:"2px solid "+C.ink,borderRadius:"8px 8px 0 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>{medal(pr[ri])}</div></div>)}</div>)})()}<h3 style={{...secHead,marginBottom:12}}>{cur.sub}</h3>{sorted.map((p,i)=><div key={p.key} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,background:ranks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(ranks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.wins%1===0?p.wins:p.wins.toFixed(2)}W / {p.games}G</div></div><div style={{fontWeight:900,color:C.tomato,fontSize:20,fontFamily:"Georgia,serif"}}>{cur.val(p)}</div></div>)}</>}{tab==="independent"&&<div>{indList.length===0?<p style={{color:C.muted,textAlign:"center",marginTop:40}}>No scored games yet.</p>:<div><select value={activeInd||""} onChange={e=>setIndGame(e.target.value)} style={{...inp,marginBottom:20,fontSize:14}}>{indList.map(([k,{name,emoji}])=><option key={k} value={k}>{emoji} {name}</option>)}</select><ScoredInfoBlock />{indR.length===0?<p style={{color:C.muted,textAlign:"center"}}>No games yet.</p>:indR.map((p,i)=><div key={p.name} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,background:indRanks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(indRanks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.count}G · avg {p.avg.toFixed(1)}/{p.maxScore}{p.lastPlayed&&<span> · {new Date(p.lastPlayed).toLocaleDateString()}</span>}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:900,color:C.tomato,fontSize:18,fontFamily:"Georgia,serif"}}>{p.effective.toFixed(1)}</div><div style={{fontSize:10,color:C.muted}}>eff</div></div></div>)}</div>}</div>}</div>);}
+function LeaderboardScreen({state}){const fu=state.familyUsers||{};const[tab,setTab]=useState("topPlayer");const[indGame,setIndGame]=useState(null);const[openMonth,setOpenMonth]=useState(null);const[selectedPlayer,setSelectedPlayer]=useState(null);const[selectedIndPlayer,setSelectedIndPlayer]=useState(null);const now=new Date();const lb=buildLeaderboardForMonth(state.history,fu,now.getFullYear(),now.getMonth());const indGameKeys={};state.history.forEach(g=>{if(g.finished&&g.scoringType==="independent"){const k=g.gameKey==="custom"?gameName(g):g.gameKey;if(!indGameKeys[k])indGameKeys[k]={name:gameName(g),emoji:gameEmoji(g)}}});Object.entries(state.templates||{}).forEach(([k,t])=>{if(t.scoringType==="independent"&&!indGameKeys[k])indGameKeys[k]={name:t.name||t.gameName||k,emoji:t.emoji||"⭐"}});const indList=Object.entries(indGameKeys);const activeInd=indGame||(indList[0] ? indList[0][0] : null)||null;const tabs=[{id:"topPlayer",icon:"⭐",label:"Top",sort:(a,b)=>b.points-a.points,val:p=>`${p.points}pts`,sub:"Total points"},{id:"mostWins",icon:"🏆",label:"Wins",sort:(a,b)=>b.wins-a.wins,val:p=>`${p.wins%1===0?p.wins:p.wins.toFixed(2)}W`,sub:"Total wins"},{id:"topTime",icon:"🎮",label:"Games",sort:(a,b)=>b.games-a.games,val:p=>`${p.games}G`,sub:"Most played"},{id:"independent",icon:"⭐",label:"Scored",sort:null,val:null,sub:"Independent scoring"}];const cur=tabs.find(t=>t.id===tab);if(!lb.length&&!indList.length)return<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><p style={{color:C.muted,textAlign:"center",marginTop:60}}>Play some games first!</p></div>;const sorted=lb.length&&cur.sort?[...lb].sort(cur.sort):[];const ranks=sorted.length?getRanks(sorted,p=>tab==="topPlayer"?p.points:tab==="mostWins"?p.wins:p.games):[];const indR=tab==="independent"&&activeInd?buildIndependentRankings(state.history,activeInd,fu):[];const indRanks=indR.length?getRanks(indR,p=>p.effective):[];return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:12,marginBottom:20}}>{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flexShrink:0,background:tab===t.id?C.tomato:C.card,border:"2px solid "+C.ink,color:tab===t.id?C.white:C.ink,borderRadius:20,padding:"8px 14px",fontSize:12,cursor:"pointer",fontWeight:700,boxShadow:tab===t.id?"2px 2px 0 "+C.ink:"none"}}>{t.icon} {t.label}</button>)}</div>{tab!=="independent"&&sorted.length>0&&<>{sorted.length>=3&&(()=>{const po=[sorted[1],sorted[0],sorted[2]];const pr=[ranks[1],ranks[0],ranks[2]];const baseH={1:130,2:90,3:75};const heights=pr.map(r=>baseH[r]||60);const bgs=[C.bg,C.lime,C.card];return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8,marginBottom:24,height:150}}>{po.map((p,ri)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",cursor:"pointer"}}><div style={{fontSize:12,textAlign:"center",fontWeight:700,marginBottom:2}}>{p.name}</div><div style={{fontSize:12,color:C.tomato,fontWeight:900,marginBottom:4}}>{cur.val(p)}</div><div style={{width:"100%",height:heights[ri],background:bgs[ri],border:"2px solid "+C.ink,borderRadius:"8px 8px 0 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>{medal(pr[ri])}</div></div>)}</div>)})()}<h3 style={{...secHead,marginBottom:12}}>{cur.sub}</h3>{sorted.map((p,i)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:ranks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(ranks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.wins%1===0?p.wins:p.wins.toFixed(2)}W / {p.games}G</div></div><div style={{fontWeight:900,color:C.tomato,fontSize:20,fontFamily:"Georgia,serif"}}>{cur.val(p)}</div></div>)}</>}{tab==="independent"&&<div>{indList.length===0?<p style={{color:C.muted,textAlign:"center",marginTop:40}}>No scored games yet.</p>:<div><select value={activeInd||""} onChange={e=>setIndGame(e.target.value)} style={{...inp,marginBottom:20,fontSize:14}}>{indList.map(([k,{name,emoji}])=><option key={k} value={k}>{emoji} {name}</option>)}</select><ScoredInfoBlock />{indR.length===0?<p style={{color:C.muted,textAlign:"center"}}>No games yet.</p>:indR.map((p,i)=><div key={p.name} onClick={()=>setSelectedIndPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:indRanks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(indRanks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.count}G · avg {p.avg.toFixed(1)}/{p.maxScore}{p.lastPlayed&&<span> · {new Date(p.lastPlayed).toLocaleDateString()}</span>}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:900,color:C.tomato,fontSize:18,fontFamily:"Georgia,serif"}}>{p.effective.toFixed(1)}</div><div style={{fontSize:10,color:C.muted}}>eff</div></div></div>)}</div>}</div>}<HistoricalWins history={state.history} fu={fu} openMonth={openMonth} setOpenMonth={setOpenMonth}/>{selectedPlayer&&<PlayerPopup player={selectedPlayer} history={state.history} fu={fu} now={now} onClose={()=>setSelectedPlayer(null)}/>}{selectedIndPlayer&&<IndPlayerPopup player={selectedIndPlayer} history={state.history} fu={fu} now={now} activeInd={activeInd} indGameKeys={indGameKeys} onClose={()=>setSelectedIndPlayer(null)}/>}</div>);}
+
+function PlayerPopup({player, history, fu, now, onClose}) {
+  const curLb = buildLeaderboardForMonth(history, fu, now.getFullYear(), now.getMonth());
+  const curPlayer = curLb.find(function(p) { return p.key === player.key; });
+  const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+  const priorPlacements = [];
+  let y = 2025, m = 3;
+  while (y < now.getFullYear() || (y === now.getFullYear() && m < now.getMonth())) {
+    const mlb = buildLeaderboardForMonth(history, fu, y, m);
+    const sorted = [...mlb].sort(function(a, b) { return b.points - a.points; });
+    const ranks = sorted.length ? getRanks(sorted, function(p) { return p.points; }) : [];
+    const idx = sorted.findIndex(function(p) { return p.key === player.key; });
+    if (idx >= 0 && ranks[idx] <= 3) priorPlacements.push({ year: y, month: m, rank: ranks[idx] });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  priorPlacements.reverse();
+  const T = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const TBG = { 1: "#FFFACC", 2: "#F4F4F4", 3: "#FDF0E0" };
+  const TBorder = { 1: "#D4A017", 2: "#999999", 3: "#CD7F32" };
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
+      <div onClick={function(e) { e.stopPropagation(); }} style={{...S.card,padding:24,maxWidth:380,width:"100%",maxHeight:"80vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:22}}>{player.name}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted,padding:4}}>✕</button>
+        </div>
+        {curPlayer
+          ? <div style={{...S.limeCard,padding:14,marginBottom:20}}>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>{MNAMES[now.getMonth()]} {now.getFullYear()} · Current Season</div>
+              <div style={{display:"flex",gap:24,marginBottom:8}}>
+                <div><div style={{fontSize:24,fontWeight:900,fontFamily:"Georgia,serif"}}>{curPlayer.points}</div><div style={{fontSize:11,color:C.muted}}>pts</div></div>
+                <div><div style={{fontSize:24,fontWeight:900,fontFamily:"Georgia,serif"}}>{curPlayer.wins % 1 === 0 ? curPlayer.wins : curPlayer.wins.toFixed(2)}</div><div style={{fontSize:11,color:C.muted}}>wins</div></div>
+                <div><div style={{fontSize:24,fontWeight:900,fontFamily:"Georgia,serif"}}>{curPlayer.games}</div><div style={{fontSize:11,color:C.muted}}>games</div></div>
+              </div>
+              <div style={{fontSize:11,color:C.muted}}>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left this season</div>
+            </div>
+          : <div style={{...S.card,padding:14,marginBottom:20,textAlign:"center"}}><p style={{color:C.muted,fontSize:13,margin:0}}>No games played this month yet.</p></div>
+        }
+        {priorPlacements.length > 0
+          ? <>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Past Podiums</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {priorPlacements.map(function(pl) {
+                  return (
+                    <div key={pl.year + "-" + pl.month} style={{background:TBG[pl.rank],border:"2px solid "+TBorder[pl.rank],borderRadius:10,padding:"8px 12px",textAlign:"center",minWidth:72}}>
+                      <div style={{fontSize:22}}>{T[pl.rank]}</div>
+                      <div style={{fontSize:12,fontWeight:700,fontFamily:"Georgia,serif"}}>{MNAMES[pl.month].slice(0, 3)}</div>
+                      <div style={{fontSize:10,color:C.muted}}>{pl.year}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          : <p style={{color:C.muted,fontSize:13,textAlign:"center"}}>No prior podium finishes yet.</p>
+        }
+      </div>
+    </div>
+  );
+}
+
+function IndPlayerPopup({player, history, fu, now, activeInd, indGameKeys, onClose}) {
+  const gameInfo = (indGameKeys && indGameKeys[activeInd]) || { name: activeInd || "Game", emoji: "⭐" };
+  const plays = [];
+  history.forEach(function(g) {
+    if (!g.finished || g.scoringType !== "independent") return;
+    const gk = g.gameKey === "custom" ? gameName(g) : g.gameKey;
+    if (gk !== activeInd) return;
+    const d = new Date(g.finishedAt || g.startedAt);
+    if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return;
+    g.players.forEach(function(p) {
+      if (pkey(p) !== player.key) return;
+      const sc = parseFloat(p.scores && p.scores.Score) || 0;
+      plays.push({ score: sc, maxScore: g.maxScore || player.maxScore || 10, date: g.finishedAt || g.startedAt });
+    });
+  });
+  plays.sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+  const totalScore = plays.reduce(function(s, p) { return s + p.score; }, 0);
+  const totalMax = plays.reduce(function(s, p) { return s + p.maxScore; }, 0);
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
+      <div onClick={function(e) { e.stopPropagation(); }} style={{...S.card,padding:24,maxWidth:380,width:"100%",maxHeight:"80vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:22}}>{player.name}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted,padding:4}}>✕</button>
+        </div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:16}}>{gameInfo.emoji} {gameInfo.name} · {MNAMES[now.getMonth()]} {now.getFullYear()}</div>
+        {plays.length === 0
+          ? <p style={{color:C.muted,fontSize:13,textAlign:"center"}}>No plays this month yet.</p>
+          : <>
+              {plays.map(function(play, i) {
+                return (
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i < plays.length - 1 ? "1px solid " + C.ink + "20" : "none"}}>
+                    <span style={{fontSize:13,color:C.muted}}>{new Date(play.date).toLocaleDateString("en-GB", {day:"numeric", month:"short"})}</span>
+                    <span style={{fontWeight:900,fontSize:17,fontFamily:"Georgia,serif"}}>{play.score}<span style={{fontWeight:400,fontSize:12,color:C.muted}}>/{play.maxScore}</span></span>
+                  </div>
+                );
+              })}
+              <div style={{borderTop:"2px solid "+C.ink,marginTop:8,paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:C.muted}}>{plays.length} play{plays.length !== 1 ? "s" : ""} this month</span>
+                <span style={{fontWeight:900,fontSize:18,fontFamily:"Georgia,serif",color:C.tomato}}>{totalScore}<span style={{fontWeight:400,fontSize:13,color:C.muted}}>/{totalMax}</span></span>
+              </div>
+            </>
+        }
+      </div>
+    </div>
+  );
+}
+
+function HistoricalWins({history, fu, openMonth, setOpenMonth}) {
+  const now = new Date();
+  const histMonths = [];
+  let y = 2025, m = 3;
+  while (y < now.getFullYear() || (y === now.getFullYear() && m < now.getMonth())) {
+    histMonths.push({ year: y, month: m });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  histMonths.reverse();
+  return (
+    <div style={{marginTop:28,paddingTop:20,borderTop:"2px dashed "+C.ink}}>
+      <h3 style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:17,margin:"0 0 4px"}}>🏅 Historical Wins</h3>
+      <p style={{color:C.muted,fontSize:11,marginBottom:14}}>Monthly champions · Apr 2025 onwards</p>
+      {histMonths.length === 0
+        ? <p style={{color:C.muted,textAlign:"center",fontSize:13}}>No past seasons yet!</p>
+        : histMonths.map(function({ year, month }) {
+            const mk = year + "-" + month;
+            const isOpen = openMonth === mk;
+            const mlb = buildLeaderboardForMonth(history, fu, year, month);
+            const top3 = [...mlb].sort(function(a, b) { return b.points - a.points; }).slice(0, 3);
+            return (
+              <div key={mk} style={{...S.card,marginBottom:8,overflow:"hidden",padding:0}}>
+                <div onClick={function() { setOpenMonth(isOpen ? null : mk); }} style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+                  <div>
+                    <div style={{fontWeight:900,fontFamily:"Georgia,serif"}}>{MNAMES[month]} {year}</div>
+                    {!isOpen && top3[0] && <div style={{fontSize:11,color:C.muted,marginTop:2}}>🥇 {top3[0].name}</div>}
+                    {!isOpen && !top3[0] && <div style={{fontSize:11,color:C.muted,marginTop:2}}>No games played</div>}
+                  </div>
+                  <span style={{color:C.muted,fontSize:12}}>{isOpen ? "▲" : "▼"}</span>
+                </div>
+                {isOpen &&
+                  <div style={{borderTop:"2px solid "+C.ink,padding:"12px 16px"}}>
+                    {top3.length === 0
+                      ? <p style={{color:C.muted,fontSize:13,textAlign:"center",margin:0}}>No games played this month.</p>
+                      : ["🥇","🥈","🥉"].map(function(trophy, ti) {
+                          return top3[ti]
+                            ? <div key={ti} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",marginBottom:ti < 2 ? 6 : 0,borderRadius:10,border:"2px solid "+C.ink,background:ti === 0 ? C.lime : C.card}}>
+                                <span style={{fontSize:24,lineHeight:1}}>{trophy}</span>
+                                <div style={{flex:1}}>
+                                  <div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:15}}>{top3[ti].name}</div>
+                                  <div style={{fontSize:11,color:C.muted}}>{top3[ti].points}pts · {top3[ti].wins % 1 === 0 ? top3[ti].wins : top3[ti].wins.toFixed(2)}W</div>
+                                </div>
+                              </div>
+                            : null;
+                        })
+                    }
+                  </div>
+                }
+              </div>
+            );
+          })
+      }
+    </div>
+  );
+}
 
 function HistoryScreen({state,dispatch}){const fu=state.familyUsers||{};return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:16}}>📋 History</h2>{!state.history.length?<p style={{color:C.muted,textAlign:"center",marginTop:60}}>No games yet!</p>:state.history.map(g=>{const w=getWinner(g);const wName=(w && w.members)?w.name:rname(w,fu);const wPts=(w && w.members)?w.total:calcTotal(w);return(<div key={g.id} onClick={()=>dispatch({type:"GO",screen:"historyDetail",id:g.id})} style={{...S.card,padding:"14px 16px",marginBottom:10,cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontFamily:"Georgia,serif",fontWeight:700}}>{gameEmoji(g)} {gameName(g)}</span><span style={{color:C.muted,fontSize:11}}>{new Date(g.finishedAt||g.startedAt).toLocaleDateString()}</span></div><div style={{marginTop:6,color:C.tomato,fontSize:13,fontWeight:700}}>🏆 {wName} — {g.scoringType==="independent"?`${wPts}/${g.maxScore}`:wPts+" pts"}</div><div style={{marginTop:4,color:C.muted,fontSize:11}}>{g.teamMode&&g.teams?g.teams.map(t=>`${t.name} (${t.members.join(", ")})`).join(" vs "):g.players.map(p=>rname(p,fu)).join(", ")}</div></div>)})}</div>);}
 

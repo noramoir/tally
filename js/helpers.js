@@ -483,10 +483,18 @@ function buildLeaderboard(history, fu) {
       points: Math.round(p.points * 100) / 100,
       wins: Math.round(p.wins * 100) / 100,
       games: p.games,
-      // Keep winRate for any display that needs it
       winRate: p.games > 0 ? p.wins / p.games : 0,
     };
   });
+}
+
+function buildLeaderboardForMonth(history, fu, year, month) {
+  var filtered = history.filter(function(g) {
+    if (!g.finished) return false;
+    var d = new Date(g.finishedAt || g.startedAt);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+  return buildLeaderboard(filtered, fu);
 }
 
 // ── Placement assigner with tie splitting ──
@@ -577,7 +585,7 @@ function buildIndependentRankings(history, gameKey, fu) {
       var k = pkey(p);
       var dn = rname(p, fu);
       var sc = parseFloat(p.scores && p.scores.Score) || 0;
-      if (!entries[k]) entries[k] = { name: dn, total: 0, count: 0, lastPlayed: null };
+      if (!entries[k]) entries[k] = { key: k, name: dn, total: 0, count: 0, lastPlayed: null };
       entries[k].total += sc;
       entries[k].count += 1;
       var d = g.finishedAt || g.startedAt;
@@ -587,6 +595,6 @@ function buildIndependentRankings(history, gameKey, fu) {
   return Object.values(entries).map(function(e) {
     var avg = e.count > 0 ? e.total / e.count : 0;
     var effective = avg * Math.min(1, e.count / INDIE_VOLUME_CAP);
-    return { name: e.name, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
+    return { name: e.name, key: e.key, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
   }).sort(function(a, b) { return b.effective - a.effective; });
 }
