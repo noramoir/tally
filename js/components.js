@@ -111,7 +111,15 @@ useEffect(() => {
       const fin = Object.assign({}, state.current, { finished: true, finishedAt: new Date().toISOString() });
       if (USE_NEW_DB) {
         const fam = await db2.getFamilyByCode(state.family);
-        if (fam) await db2.saveGame(fam.id, fin);
+        if (fam) {
+          await db2.saveGame(fam.id, fin);
+          const tKey = fin.gameKey === "custom" ? fin.gameName : fin.gameKey;
+          await db2.upsertTemplate(fam.id, tKey, {
+            gameKey: fin.gameKey, name: fin.gameName, gameName: fin.gameName, emoji: fin.emoji,
+            categories: fin.categories, scoringType: fin.scoringType, maxScore: fin.maxScore,
+            lowWins: fin.lowWins, tier: fin.tier,
+          });
+        }
       } else {
         const existing = await dbLoad(state.family) || [];
         await dbSave(state.family, [fin].concat(existing.filter(g => g.id !== fin.id)));
