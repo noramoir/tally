@@ -432,6 +432,27 @@ function PlayerPopup({player, history, fu, now, onClose}) {
             </div>
           : <div style={{...S.card,padding:14,marginBottom:20,textAlign:"center"}}><p style={{color:C.muted,fontSize:13,margin:0}}>No games played this month yet.</p></div>
         }
+        {(function() {
+          var badges = computeBadges(player.key, history, fu);
+          return (
+            <div style={{background:"#fde8e8",border:"2px solid "+C.ink,borderRadius:14,boxShadow:"3px 3px 0 "+C.ink,padding:14,marginBottom:20}}>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Badges</div>
+              {badges.length === 0
+                ? <p style={{color:C.muted,fontSize:13,margin:0,textAlign:"center"}}>No badges earned yet.</p>
+                : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                    {badges.map(function(b) {
+                      return (
+                        <div key={b.key} style={{background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"8px 12px",display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:20}}>{b.emoji}</span>
+                          <span style={{fontSize:12,fontWeight:700}}>{b.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+              }
+            </div>
+          );
+        })()}
         {priorPlacements.length > 0
           ? <>
               <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Past Podiums</div>
@@ -503,9 +524,10 @@ function IndPlayerPopup({player, history, fu, now, activeInd, indGameKeys, onClo
 }
 
 function HistoricalWins({history, fu, openMonth, setOpenMonth}) {
+  const [showHistory, setShowHistory] = useState(false);
   const now = new Date();
   const histMonths = [];
-  let y = 2025, m = 3;
+  let y = 2026, m = 3;
   while (y < now.getFullYear() || (y === now.getFullYear() && m < now.getMonth())) {
     histMonths.push({ year: y, month: m });
     m++; if (m > 11) { m = 0; y++; }
@@ -513,15 +535,17 @@ function HistoricalWins({history, fu, openMonth, setOpenMonth}) {
   histMonths.reverse();
   return (
     <div style={{marginTop:28,paddingTop:20,borderTop:"2px dashed "+C.ink}}>
-      <h3 style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:17,margin:"0 0 4px"}}>🏅 Historical Wins</h3>
-      <p style={{color:C.muted,fontSize:11,marginBottom:14}}>Monthly champions · Apr 2025 onwards</p>
-      {histMonths.length === 0
-        ? <p style={{color:C.muted,textAlign:"center",fontSize:13}}>No past seasons yet!</p>
+      <button onClick={function(){ setShowHistory(function(v){ return !v; }); }} style={{width:"100%",padding:"16px",fontSize:16,fontWeight:900,background:C.tomato,color:C.white,border:"2px solid "+C.ink,borderRadius:14,cursor:"pointer",boxShadow:"3px 3px 0 "+C.ink,fontFamily:"Georgia,serif",marginBottom:showHistory?12:0}}>
+        🏅 Historical Wins {showHistory ? "▲" : "▼"}
+      </button>
+      {showHistory && (histMonths.length === 0
+        ? <p style={{color:C.muted,textAlign:"center",fontSize:13,marginTop:12}}>No past seasons yet!</p>
         : histMonths.map(function({ year, month }) {
             const mk = year + "-" + month;
             const isOpen = openMonth === mk;
             const mlb = buildLeaderboardForMonth(history, fu, year, month);
             const top3 = [...mlb].sort(function(a, b) { return b.points - a.points; }).slice(0, 3);
+            const ws = getWoodenSpoon(mlb);
             return (
               <div key={mk} style={{...S.card,marginBottom:8,overflow:"hidden",padding:0}}>
                 <div onClick={function() { setOpenMonth(isOpen ? null : mk); }} style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
@@ -536,24 +560,33 @@ function HistoricalWins({history, fu, openMonth, setOpenMonth}) {
                   <div style={{borderTop:"2px solid "+C.ink,padding:"12px 16px"}}>
                     {top3.length === 0
                       ? <p style={{color:C.muted,fontSize:13,textAlign:"center",margin:0}}>No games played this month.</p>
-                      : ["🥇","🥈","🥉"].map(function(trophy, ti) {
-                          return top3[ti]
-                            ? <div key={ti} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",marginBottom:ti < 2 ? 6 : 0,borderRadius:10,border:"2px solid "+C.ink,background:ti === 0 ? C.lime : C.card}}>
-                                <span style={{fontSize:24,lineHeight:1}}>{trophy}</span>
-                                <div style={{flex:1}}>
-                                  <div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:15}}>{top3[ti].name}</div>
-                                  <div style={{fontSize:11,color:C.muted}}>{top3[ti].points}pts · {top3[ti].wins % 1 === 0 ? top3[ti].wins : top3[ti].wins.toFixed(2)}W</div>
+                      : <>
+                          {["🥇","🥈","🥉"].map(function(trophy, ti) {
+                            return top3[ti]
+                              ? <div key={ti} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",marginBottom:6,borderRadius:10,border:"2px solid "+C.ink,background:ti === 0 ? C.lime : C.card}}>
+                                  <span style={{fontSize:24,lineHeight:1}}>{trophy}</span>
+                                  <div style={{flex:1}}>
+                                    <div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:15}}>{top3[ti].name}</div>
+                                    <div style={{fontSize:11,color:C.muted}}>{top3[ti].points}pts · {top3[ti].wins % 1 === 0 ? top3[ti].wins : top3[ti].wins.toFixed(2)}W</div>
+                                  </div>
                                 </div>
-                              </div>
-                            : null;
-                        })
+                              : null;
+                          })}
+                          {ws && <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:10,border:"2px solid "+C.ink,background:"#f5f0e8"}}>
+                            <span style={{fontSize:24,lineHeight:1}}>🥄</span>
+                            <div style={{flex:1}}>
+                              <div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:15}}>{ws.name}</div>
+                              <div style={{fontSize:11,color:C.muted}}>Wooden Spoon · {ws.games}G · {Math.round((ws.games - ws.wins) / ws.games * 100)}% loss rate</div>
+                            </div>
+                          </div>}
+                        </>
                     }
                   </div>
                 }
               </div>
             );
           })
-      }
+      )}
     </div>
   );
 }

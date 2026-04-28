@@ -571,6 +571,111 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
     maxScore: maxScore, lowWins: lowWins, tier: tier,
   };
 }
+// ─── Badge & Award Helpers ───────────────────────
+
+var BADGES = [
+  { key: "game_hoe",        name: "Game Hoe",           emoji: "🫯" },
+  { key: "grand_architect", name: "Grand Architect",     emoji: "👷" },
+  { key: "consistency",     name: "Consistency is Key",  emoji: "🔥" },
+  { key: "comeback_kid",    name: "Comeback Kid",        emoji: "🕺" },
+  { key: "big_nerd",        name: "Big Nerd",            emoji: "🤓" },
+];
+
+function playerInGame(g, playerKey, fu) {
+  var displayName = fu && fu[playerKey] ? fu[playerKey].displayName : playerKey;
+  if (g.teamMode && g.teams) {
+    return g.teams.some(function(t) {
+      return t.members.some(function(m) { return m === displayName || m === playerKey; });
+    });
+  }
+  return g.players.some(function(p) {
+    return pkey(p) === playerKey || p.name === displayName;
+  });
+}
+
+function computeBadges(playerKey, history, fu) {
+  var earned = [];
+  var finished = history.filter(function(g) { return g.finished; });
+  var mine = finished.filter(function(g) { return playerInGame(g, playerKey, fu); });
+
+  // Game Hoe: 10+ unique game names
+  var uniqueNames = new Set(mine.map(function(g) { return gameName(g); }));
+  if (uniqueNames.size >= 10) earned.push(BADGES[0]);
+
+  // Grand Architect: 5+ unique custom templates where player was first player on first-ever play
+  var templateFirstPlay = {};
+  finished.forEach(function(g) {
+    if (BUILT_IN_GAMES[g.gameKey] && g.gameKey !== "custom") return;
+    var name = gameName(g);
+    var d = new Date(g.finishedAt || g.startedAt);
+    if (!templateFirstPlay[name] || d < new Date(templateFirstPlay[name].finishedAt || templateFirstPlay[name].startedAt)) {
+      templateFirstPlay[name] = g;
+    }
+  });
+  var createdCount = Object.values(templateFirstPlay).filter(function(g) {
+    return g.players && g.players.length > 0 && pkey(g.players[0]) === playerKey;
+  }).length;
+  if (createdCount >= 5) earned.push(BADGES[1]);
+
+  // Consistency is Key: 3 consecutive months with at least 1 game
+  var monthSet = new Set();
+  mine.forEach(function(g) {
+    var d = new Date(g.finishedAt || g.startedAt);
+    monthSet.add(d.getFullYear() * 12 + d.getMonth());
+  });
+  var months = Array.from(monthSet).sort(function(a, b) { return a - b; });
+  var hasConsecutive3 = false;
+  for (var i = 0; i <= months.length - 3; i++) {
+    if (months[i+1] === months[i]+1 && months[i+2] === months[i]+2) { hasConsecutive3 = true; break; }
+  }
+  if (hasConsecutive3) earned.push(BADGES[2]);
+
+  // Comeback Kid: last in one season, top 3 in the next consecutive season
+  var allMonthSet = new Set();
+  finished.forEach(function(g) {
+    var d = new Date(g.finishedAt || g.startedAt);
+    allMonthSet.add(d.getFullYear() * 12 + d.getMonth());
+  });
+  var allMonths = Array.from(allMonthSet).sort(function(a, b) { return a - b; });
+  var isComeback = false;
+  for (var i = 0; i < allMonths.length - 1 && !isComeback; i++) {
+    if (allMonths[i+1] !== allMonths[i] + 1) continue;
+    var y1 = Math.floor(allMonths[i] / 12), m1 = allMonths[i] % 12;
+    var y2 = Math.floor(allMonths[i+1] / 12), m2 = allMonths[i+1] % 12;
+    var lb1 = buildLeaderboardForMonth(history, fu, y1, m1);
+    var lb2 = buildLeaderboardForMonth(history, fu, y2, m2);
+    var s1 = lb1.slice().sort(function(a, b) { return b.points - a.points; });
+    var s2 = lb2.slice().sort(function(a, b) { return b.points - a.points; });
+    if (!s1.length || !s2.length) continue;
+    var r1 = getRanks(s1, function(p) { return p.points; });
+    var r2 = getRanks(s2, function(p) { return p.points; });
+    var idx1 = s1.findIndex(function(p) { return p.key === playerKey; });
+    var idx2 = s2.findIndex(function(p) { return p.key === playerKey; });
+    if (idx1 < 0 || idx2 < 0) continue;
+    var maxRank1 = Math.max.apply(null, r1);
+    if (r1[idx1] === maxRank1 && r2[idx2] <= 3) isComeback = true;
+  }
+  if (isComeback) earned.push(BADGES[3]);
+
+  // Big Nerd: played any tier 5 game
+  if (mine.some(function(g) { return (g.tier || DEFAULT_TIER) === 5; })) earned.push(BADGES[4]);
+
+  return earned;
+}
+
+function getWoodenSpoon(lb) {
+  if (!lb || lb.length < 2) return null;
+  var eligible = lb.filter(function(p) { return p.games >= 2; });
+  if (!eligible.length) return null;
+  var sorted = eligible.slice().sort(function(a, b) {
+    var aRatio = (a.games - a.wins) / a.games;
+    var bRatio = (b.games - b.wins) / b.games;
+    if (Math.abs(bRatio - aRatio) > 0.001) return bRatio - aRatio;
+    return b.games - a.games;
+  });
+  return sorted[0];
+}
+
 // ─── Independent Game Rankings ───────────────────
 function buildIndependentRankings(history, gameKey, fu) {
   fu = fu || {};
