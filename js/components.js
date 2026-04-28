@@ -433,20 +433,15 @@ function PlayerPopup({player, history, fu, now, onClose}) {
           : <div style={{...S.card,padding:14,marginBottom:20,textAlign:"center"}}><p style={{color:C.muted,fontSize:13,margin:0}}>No games played this month yet.</p></div>
         }
         {(function() {
-          var badges = computeBadges(player.key, history, fu);
+          var earned = computeBadges(player.key, history, fu);
           return (
-            <div style={{background:"#fde8e8",border:"2px solid "+C.ink,borderRadius:14,boxShadow:"3px 3px 0 "+C.ink,padding:14,marginBottom:20}}>
-              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Badges</div>
-              {badges.length === 0
-                ? <p style={{color:C.muted,fontSize:13,margin:0,textAlign:"center"}}>No badges earned yet.</p>
+            <div style={{background:C.tomato,border:"2px solid "+C.ink,borderRadius:14,boxShadow:"3px 3px 0 "+C.ink,padding:14,marginBottom:20}}>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.8)",textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Badges</div>
+              {earned.length === 0
+                ? <p style={{color:"rgba(255,255,255,0.8)",fontSize:13,margin:0,textAlign:"center"}}>No badges earned yet.</p>
                 : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {badges.map(function(b) {
-                      return (
-                        <div key={b.key} style={{background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"8px 12px",display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:20}}>{b.emoji}</span>
-                          <span style={{fontSize:12,fontWeight:700}}>{b.name}</span>
-                        </div>
-                      );
+                    {earned.map(function(b) {
+                      return <BadgePill key={b.key} badge={b} />;
                     })}
                   </div>
               }
@@ -641,6 +636,35 @@ function FamilyScreen({state,dispatch}){const fu=state.familyUsers||{};const myD
       if(USE_NEW_DB){const fam=await db2.getFamilyByCode(state.family);if(fam)await db2.saveAllGames(fam.id,h.filter(g=>ids.includes(g.id)))}
       else{await dbSave(state.family,h)}
     }setClaimTarget(null)}return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:16}}>👨‍👩‍👧 Family</h2>{state.user&&!state.user.guest&&<div style={{...S.card,padding:20,marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}><div><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:2}}>Profile</div><div style={{fontSize:20,fontWeight:900,fontFamily:"Georgia,serif",marginTop:4}}>{myDname||state.user.userId}</div><div style={{fontSize:12,color:C.muted}}>@{state.user.userId}</div></div><div style={{fontSize:36}}>👤</div></div>{editName?<div><input style={{...inp,marginBottom:8}} value={newDname} onChange={e=>{setNewDname(e.target.value);setNameErr("")}}/>{nameErr&&<div style={{color:C.tomato,fontSize:12,fontWeight:700,marginBottom:8}}>{nameErr}</div>}<div style={{display:"flex",gap:8}}><Btn onClick={()=>setEditName(false)}>Cancel</Btn><Btn primary onClick={doRename}>Save</Btn></div></div>:<Btn onClick={()=>{setEditName(true);setNewDname(myDname||"")}}>✏️ Change Display Name</Btn>}<div style={{marginTop:12}}><span onClick={()=>{if(window.confirm("Log out?"))dispatch({type:"LOGOUT"})}} style={{color:"#c0392b",fontSize:13,cursor:"pointer",fontWeight:700}}>Log out</span></div></div>}{(state.user && state.user.guest)&&<div style={{...S.limeCard,padding:20,marginBottom:20,textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>👤</div><div style={{fontWeight:700,fontSize:15,marginBottom:4}}>Guest</div><p style={{color:C.muted,fontSize:12,marginBottom:12}}>Create an account to claim games {"&"} sync.</p><Btn primary onClick={()=>dispatch({type:"LOGOUT"})}>Create Account</Btn></div>}{state.user&&!state.user.guest&&(state.user.families && state.user.families.length)>0&&<div style={{marginBottom:20}}><h3 style={{...secHead,color:C.card}}>Your Families</h3>{state.user.families.map(f=><div key={f} style={{...S.card,padding:"12px 16px",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",background:f===state.family?C.lime:C.card}}><div onClick={()=>{if(f!==state.family&&!state.current)dispatch({type:"SWITCH_FAMILY",family:f})}} style={{cursor:f!==state.family?"pointer":"default",flex:1}}><span style={{fontWeight:700}}>{f}</span>{f===state.family&&<span style={{fontSize:11,color:C.muted,marginLeft:8}}>· active</span>}</div><span onClick={()=>{if(window.confirm(`Leave "${f}"?`))dispatch({type:"LEAVE_FAMILY",family:f})}} style={{color:"#c0392b",fontSize:12,cursor:"pointer",fontWeight:700}}>Leave</span></div>)}{state.current&&<p style={{color:C.card,fontSize:11}}>Finish current game to switch.</p>}</div>}<div style={{marginBottom:20}}><h3 style={{...secHead,color:C.card}}>Join / Create Family</h3>{!sb&&<div style={{...S.limeCard,padding:14,marginBottom:12,fontSize:13,color:C.muted}}>⚠️ Supabase not configured.</div>}<input style={{...inp,marginBottom:12}} placeholder="Family password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&joinFamily()}/><Btn full primary onClick={joinFamily} disabled={loading||!pw.trim()||!sb}>{loading?"…":"Join / Create →"}</Btn>{msg&&<div style={{...S.card,marginTop:12,padding:14,fontSize:13,color:C.muted}}>{msg}</div>}</div>{state.family&&!(state.user && state.user.guest)&&claimable.length>0&&<div style={{marginBottom:20}}><h3 style={{...secHead,color:C.card}}>Unlinked Players from the Family History</h3><p style={{color:C.card,fontSize:12,marginBottom:12}}>⚠️ WARNING: Claiming a player name below links it to your account that you're logged in as. Be absolutely SURE you're claiming a game you played! Theft of points will be frowned upon. ⚠️ Tap to link games to your account.</p>{claimable.map(c=><div key={c.name} onClick={()=>startClaim(c)} style={{...S.card,padding:"12px 16px",marginBottom:8,cursor:"pointer",display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:700}}>{c.name}</span><span style={{fontSize:12,color:C.muted}}>{c.games.length}G</span></div>)}</div>}{myDupes.length>0&&<div style={{marginBottom:20}}><div style={{...S.card,padding:16,background:"#fff3e0",borderColor:"#f39c12"}}><div style={{fontWeight:900,fontSize:14,marginBottom:6}}>🔧 Your duplicate</div><p style={{color:C.muted,fontSize:12,marginBottom:12}}>{myDupes.length} game{myDupes.length!==1?"s":""} with "{myDname}" not linked.</p><Btn full primary onClick={fixMyDupes}>Merge into my account</Btn></div></div>}{dupeNames.length>0&&<div style={{marginBottom:20}}><div style={{...S.card,padding:16,background:"#fde8e8",borderColor:"#c0392b"}}><div style={{fontWeight:900,fontSize:14,marginBottom:6}}>⚠️ Duplicates</div><p style={{color:C.muted,fontSize:12,marginBottom:12}}>Same name, different identities:</p>{dupeNames.map(([nm,keys])=><div key={nm} style={{background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:12,marginBottom:10}}><div style={{fontWeight:900,fontSize:15,marginBottom:8}}>"{nm}"</div>{keys.map(k=>{const d=diagPlayers[k];return<div key={k} style={{fontSize:12,color:C.muted,marginBottom:4,paddingLeft:8,borderLeft:"3px solid "+(d.userId?C.tomato:C.muted)}}><span style={{fontWeight:700,color:C.ink}}>{[...d.names].join(", ")}</span> · {d.userId?`@${d.userId}`:"no account"} · {d.games}G</div>})}<button onClick={()=>mergeDupe(nm,keys)} style={{marginTop:8,width:"100%",padding:"10px",fontSize:13,fontWeight:700,borderRadius:8,border:"2px solid "+C.ink,background:C.tomato,color:C.white,cursor:"pointer"}}>🔗 Merge</button></div>)}</div></div>}<div style={{marginBottom:20}}><div onClick={()=>setShowDiag(d=>!d)} style={{color:C.card,fontSize:12,cursor:"pointer",fontWeight:700}}>{showDiag?"▼":"▶"} Debug info</div>{showDiag&&<div style={{...S.card,padding:12,marginTop:8,fontSize:11,maxHeight:300,overflow:"auto"}}>{Object.entries(diagPlayers).map(([k,v])=><div key={k} style={{marginBottom:8,paddingBottom:8,borderBottom:"1px solid "+C.ink+"20"}}><div style={{fontWeight:900}}>{[...v.names].join(", ")}</div><div style={{color:C.muted}}>Key: {k} · userId: {v.userId||"none"} · {v.games}G</div></div>)}</div>}</div>{claimTarget&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}} onClick={()=>setClaimTarget(null)}><div style={{...S.card,padding:24,maxWidth:380,width:"100%",maxHeight:"80vh",overflow:"auto"}} onClick={e=>e.stopPropagation()}><h3 style={{fontFamily:"Georgia,serif",marginBottom:4,fontSize:18}}>Claim "{claimTarget.name}"?</h3><p style={{color:C.muted,fontSize:12,marginBottom:16}}>Select games to link as "{myDname||(state.user && state.user.userId)}".</p>{claimTarget.games.map(g=><div key={g.id} onClick={()=>setClaimSel(p=>({...p,[g.id]:!p[g.id]}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid "+C.ink+"20",cursor:"pointer"}}><div style={{width:24,height:24,borderRadius:6,border:"2px solid "+C.ink,background:claimSel[g.id]?C.tomato:C.white,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:14,fontWeight:700,flexShrink:0}}>{claimSel[g.id]?"✓":""}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{gameEmoji(g)} {gameName(g)}</div><div style={{fontSize:11,color:C.muted}}>{new Date(g.finishedAt||g.startedAt).toLocaleDateString()}</div></div></div>)}<div style={{display:"flex",gap:10,marginTop:20}}><Btn full onClick={()=>setClaimTarget(null)}>Cancel</Btn><Btn full primary onClick={doClaim} disabled={!Object.values(claimSel).some(v=>v)}>Claim</Btn></div></div></div>}</div>);}
+function BadgePill({ badge }) {
+  const [open, setOpen] = useState(false);
+  const hoverTimer = useRef(null);
+  return (
+    <>
+      <div
+        onClick={function(e){ e.stopPropagation(); setOpen(true); }}
+        onMouseEnter={function(){ hoverTimer.current = setTimeout(function(){ setOpen(true); }, 400); }}
+        onMouseLeave={function(){ clearTimeout(hoverTimer.current); }}
+        style={{background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"8px 12px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none"}}
+      >
+        <span style={{fontSize:20}}>{badge.emoji}</span>
+        <span style={{fontSize:12,fontWeight:700}}>{badge.name}</span>
+      </div>
+      {open && ReactDOM.createPortal(
+        <div onClick={function(){ setOpen(false); }} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,padding:20}}>
+          <div onClick={function(e){ e.stopPropagation(); }} style={{...S.card,padding:24,maxWidth:300,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:8}}>{badge.emoji}</div>
+            <div style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:18,marginBottom:12}}>{badge.name}</div>
+            <p style={{color:C.muted,fontSize:13,lineHeight:"1.5",margin:"0 0 16px"}}>{badge.desc}</p>
+            <Btn full onClick={function(){ setOpen(false); }}>Got it</Btn>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function TierBadge({ tier }) {
   const label = (tier == null || tier === undefined) ? "?" : tier;
   return (
