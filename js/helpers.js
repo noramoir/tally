@@ -575,7 +575,7 @@ function newGame(gk, pn, cats, cn, ce, tm, teams, st, ms, user, fu, lw) {
 
 var BADGES = [
   { key: "game_hoe",        name: "Game Hoe",           emoji: "🫯", desc: "Play 10 unique game types." },
-  { key: "grand_architect", name: "Grand Architect",     emoji: "👷", desc: "Be the first player to create 5 unique custom game templates." },
+  { key: "grand_architect", name: "Grand Architect",     emoji: "👷", desc: "Create 5 unique custom game templates." },
   { key: "consistency",     name: "Consistency is Key",  emoji: "🔥", desc: "Play games in 3 consecutive months." },
   { key: "comeback_kid",    name: "Comeback Kid",        emoji: "🕺", desc: "Place last in one season, then finish top 3 in the very next season." },
   { key: "big_nerd",        name: "Big Nerd",            emoji: "🤓", desc: "Play a tier 5 (highest weight) game." },
