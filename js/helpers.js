@@ -354,16 +354,23 @@ function playSound(type) {
 
 // ─── Leaderboard Builder ─────────────────────────
 // Accumulation model: points earned per game, no ceiling.
-// Placement points (before tier multiplier):
-//   1st: 10, 2nd: 8, 3rd: 5, 4th+: 3 (participation)
+// Placement points scale with player count (before game weighting):
+//   2 players:  1st=10, 2nd=3
+//   3 players:  1st=10, 2nd=8, 3rd=3
+//   4+ players: 1st=10, 2nd=8, 3rd=5, 4th+=3
 //   Independent winner: 5
 // Ties split placement points equally.
 // Team members split placement points by team size.
 // Winners/2nd/3rd do NOT also get participation.
 
-var PLACEMENT_PTS = [10, 8, 5]; // 1st, 2nd, 3rd
-var PARTICIPATION_PTS = 3;      // 4th+
+var PARTICIPATION_PTS = 3;      // 4th+ (and last place in smaller games)
 var INDIE_WIN_PTS = 5;          // independent game leader
+
+function getPlacementPts(playerCount) {
+  if (playerCount <= 2) return [10, 3];
+  if (playerCount === 3) return [10, 8, 3];
+  return [10, 8, 5]; // 4+ use PARTICIPATION_PTS for remaining places
+}
 
 function buildLeaderboard(history, fu) {
   fu = fu || {};
@@ -502,6 +509,7 @@ function buildLeaderboardForMonth(history, fu, year, month) {
 // Returns array of { item, rank, pts } where pts accounts for tie splits.
 function assignPlacements(sorted, valFn) {
   var result = [];
+  var placementPts = getPlacementPts(sorted.length);
   var i = 0;
   while (i < sorted.length) {
     // Find all items tied at this position
@@ -514,16 +522,8 @@ function assignPlacements(sorted, valFn) {
     var rank = tieStart + 1; // 1-indexed rank
 
     // Calculate points: average the placement points across tied positions
-    // e.g. 2 tied for 1st: each gets PLACEMENT_PTS[0] / 2
-    // e.g. 2 tied for 2nd: each gets PLACEMENT_PTS[1] / 2
-    var pts;
-    if (rank <= 3) {
-      // All tied players are in a podium position
-      pts = (PLACEMENT_PTS[rank - 1] || PARTICIPATION_PTS) / tieCount;
-    } else {
-      // 4th+ all get participation
-      pts = PARTICIPATION_PTS;
-    }
+    // e.g. 2 tied for 1st: each gets placementPts[0] / 2
+    var pts = (placementPts[rank - 1] !== undefined ? placementPts[rank - 1] : PARTICIPATION_PTS) / tieCount;
 
     for (var j = tieStart; j < i; j++) {
       result.push({ item: sorted[j], rank: rank, pts: pts });
