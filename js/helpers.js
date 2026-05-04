@@ -450,7 +450,7 @@ function buildLeaderboard(history, fu) {
   history.forEach(function(g) {
     if (!g.finished || g.scoringType !== "independent") return;
     var k = g.gameKey === "custom" ? gameName(g) : g.gameKey;
-    if (!indGames[k]) indGames[k] = { entries: {}, tier: g.tier || DEFAULT_TIER };
+    if (!indGames[k]) indGames[k] = { entries: {}, tier: g.tier || DEFAULT_TIER, lowWins: !!g.lowWins };
     g.players.forEach(function(p) {
       var sc = parseFloat(p.scores && p.scores.Score) || 0;
       var pk = pkey(p);
@@ -461,14 +461,14 @@ function buildLeaderboard(history, fu) {
   });
 
   Object.values(indGames).forEach(function(ig) {
-    var best = -1, effs = {};
+    var best = ig.lowWins ? Infinity : -1, effs = {};
     Object.entries(ig.entries).forEach(function(e) {
       var n = e[0], total = e[1].total, count = e[1].count;
       var eff = (total / count) * Math.min(1, count / INDIE_VOLUME_CAP);
       effs[n] = eff;
-      if (eff > best) best = eff;
+      if (ig.lowWins ? (eff < best) : (eff > best)) best = eff;
     });
-    if (best <= 0) return;
+    if (!ig.lowWins && best <= 0) return;
     // Count how many tied for best
     var tiedKeys = [];
     Object.entries(effs).forEach(function(e) {
@@ -681,11 +681,13 @@ function buildIndependentRankings(history, gameKey, fu) {
   fu = fu || {};
   var entries = {};
   var maxScore = 50;
+  var lowWins = false;
   history.forEach(function(g) {
     if (!g.finished || g.scoringType !== "independent") return;
     var gk = g.gameKey === "custom" ? gameName(g) : g.gameKey;
     if (gk !== gameKey) return;
     if (g.maxScore) maxScore = g.maxScore;
+    if (g.lowWins) lowWins = true;
     g.players.forEach(function(p) {
       var k = pkey(p);
       var dn = rname(p, fu);
@@ -701,5 +703,5 @@ function buildIndependentRankings(history, gameKey, fu) {
     var avg = e.count > 0 ? e.total / e.count : 0;
     var effective = avg * Math.min(1, e.count / INDIE_VOLUME_CAP);
     return { name: e.name, key: e.key, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
-  }).sort(function(a, b) { return b.effective - a.effective; });
+  }).sort(function(a, b) { return lowWins ? (a.effective - b.effective) : (b.effective - a.effective); });
 }
