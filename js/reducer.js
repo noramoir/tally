@@ -135,6 +135,10 @@ function reducer(state, action) {
     }
 
     case "DELETE_HISTORY": {
+      var gameToDelete = state.history.find(function(g) { return g.id === action.id; });
+      var currentUserId = state.user && state.user.userId;
+      var wasPlayer = gameToDelete && currentUserId && gameToDelete.players.some(function(p) { return p.userId === currentUserId; });
+      if (!wasPlayer) return state;
       var u = state.history.filter(function(g) { return g.id !== action.id; });
       if (state.family && sb) {
         if (USE_NEW_DB) {
