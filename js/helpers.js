@@ -287,6 +287,39 @@ function getFreqPlayers(hist, uid, n) {
   return Object.entries(ct).sort(function(a, b) { return b[1] - a[1]; }).slice(0, n || 5).map(function(e) { return e[0]; });
 }
 
+// Returns top N games by play count for a given player key/name
+function getTopGamesForPlayer(playerKey, playerName, history, n, since) {
+  var gameCounts = {};
+  history.forEach(function(g) {
+    if (!g.finished) return;
+    if (since && new Date(g.finishedAt || g.startedAt) < since) return;
+    var gn = gameName(g);
+    var ge = gameEmoji(g);
+    var inGame = false;
+
+    if (g.teamMode && g.teams) {
+      g.teams.forEach(function(t) {
+        if (t.members.indexOf(playerName) >= 0) inGame = true;
+      });
+    }
+    if (!inGame && g.players) {
+      g.players.forEach(function(p) {
+        if (pkey(p) === playerKey) inGame = true;
+      });
+    }
+
+    if (inGame) {
+      if (!gameCounts[gn]) gameCounts[gn] = { count: 0, emoji: ge };
+      gameCounts[gn].count++;
+    }
+  });
+
+  return Object.entries(gameCounts)
+    .sort(function(a, b) { return b[1].count - a[1].count; })
+    .slice(0, n || 3)
+    .map(function(e) { return { name: e[0], count: e[1].count, emoji: e[1].emoji }; });
+}
+
 // ─── Team Helpers ────────────────────────────────
 function teamTotals(game) {
   if (!game.teamMode || !game.teams) return [];
