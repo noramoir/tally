@@ -321,7 +321,7 @@ function SetupScreen({state,dispatch}){
   const[teams,setTeams]=useState([{name:"Team 1",members:[]},{name:"Team 2",members:[]},{name:"Team 3",members:[]},{name:"Team 4",members:[]}]);
   const[solo,setSolo]=useState(()=>myName?[myName]:[]);const[newName,setNewName]=useState("");
   const[scoringType,setScoringType]=useState("standard");const[maxScoreInput,setMaxScoreInput]=useState("10");const[lowWins,setLowWins]=useState(false);
-  const[deleteTarget,setDeleteTarget]=useState(null);const lp=useRef(null);const pc=useRef(false);
+  const[deleteTarget,setDeleteTarget]=useState(null);const lp=useRef(null);const pc=useRef(false);const[showMorePlayers,setShowMorePlayers]=useState(false);
   const[gameFilter,setGameFilter]=useState("recent");
   const customRef=useRef(null);const modeRef=useRef(null);
   function hpd(k){if(BUILT_IN_GAMES[k])return;pc.current=false;lp.current=setTimeout(()=>{pc.current=true;setDeleteTarget(k)},600)}function hpu(){clearTimeout(lp.current)}
@@ -342,7 +342,11 @@ function SetupScreen({state,dispatch}){
   const freq=getFreqPlayers(state.history,(state.user && state.user.userId),5);
   const allPoolRaw=[...(myName?[myName]:[]),...freq,...knownPlayers,...teams.flatMap(t=>t.members),...solo];
   const allPoolSeen={};const allPool=[];
-  allPoolRaw.forEach(function(n){const key=n.trim().toLowerCase();if(!allPoolSeen[key]){allPoolSeen[key]=n;allPool.push(n)}});  const selectedDef=gameKey?allGames[gameKey]:null;const isIndependent=gameKey==="custom"?scoringType==="independent":(selectedDef && selectedDef.scoringType)==="independent";
+  allPoolRaw.forEach(function(n){const key=n.trim().toLowerCase();if(!allPoolSeen[key]){allPoolSeen[key]=n;allPool.push(n)}});
+  const playerLastPlayed={};state.history.forEach(function(g){if(!g.finished)return;const d=g.finishedAt||g.startedAt;const names=g.teamMode&&g.teams?g.teams.flatMap(t=>t.members):g.players.map(p=>rname(p,fu));names.forEach(function(nm){const k=nm.trim().toLowerCase();if(!playerLastPlayed[k]||new Date(d)>new Date(playerLastPlayed[k]))playerLastPlayed[k]=d;});});
+  const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+  const visiblePool=[];const hiddenPool=[];
+  allPool.forEach(function(n){const k=n.trim().toLowerCase();const last=playerLastPlayed[k];const recent=last&&new Date(last)>=thirtyDaysAgo;if(n===myName||recent||solo.includes(n)||teams.some(t=>t.members.includes(n))){visiblePool.push(n);}else{hiddenPool.push(n);}});  const selectedDef=gameKey?allGames[gameKey]:null;const isIndependent=gameKey==="custom"?scoringType==="independent":(selectedDef && selectedDef.scoringType)==="independent";
   function pickGame(k){if(pc.current)return;setGameKey(k);const def=allGames[k];setCats(k!=="custom"&&(def && def.categories)&&def.scoringType!=="independent"?def.categories:[""]);setCustEmoji((def && def.emoji)||"🎲");if(k!=="custom"&&(def && def.scoringType))setScoringType(def.scoringType);if(k!=="custom"&&(def && def.maxScore))setMaxScoreInput(String(def.maxScore));setLowWins(!!((def && def.lowWins)));setTimeout(function(){var target=k==="custom"?customRef.current:modeRef.current;if(target)target.scrollIntoView({behavior:"smooth",block:"start"})},100)}
   function toggleSolo(n){setSolo(p=>p.includes(n)?p.filter(x=>x!==n):[...p,n])}
   function assignTeam(name,ti){setTeams(prev=>prev.map((t,i)=>{if(i===ti)return t.members.includes(name)?{...t,members:t.members.filter(m=>m!==name)}:{...t,members:[...t.members,name]};return{...t,members:t.members.filter(m=>m!==name)}}))}
@@ -372,7 +376,8 @@ function SetupScreen({state,dispatch}){
     <div style={{display:"flex",gap:10,marginBottom:24}}>{[{v:false,l:"👤 Individual"},{v:true,l:"👥 Team Mode"}].map(({v,l})=><button key={String(v)} onClick={()=>setTeamMode(v)} style={{flex:1,padding:"14px 0",fontSize:14,fontWeight:700,background:teamMode===v?C.tomato:C.card,color:teamMode===v?C.white:C.ink,border:"2px solid "+C.ink,borderRadius:12,cursor:"pointer",boxShadow:teamMode===v?"3px 3px 0 "+C.ink:"none"}}>{l}</button>)}</div>
     {!teamMode&&<div style={{...S.card,padding:16,marginBottom:24}}>
       <h3 style={{...secHead,marginBottom:12}}>Select Players</h3>
-      {allPool.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>{allPool.map(n=><button key={n} onClick={()=>toggleSolo(n)} style={{background:solo.includes(n)?C.tomato:C.white,border:"2px solid "+(n===myName?"#3498db":C.ink),color:solo.includes(n)?C.white:C.ink,borderRadius:20,padding:"7px 16px",fontSize:13,cursor:"pointer",fontWeight:700}}>{solo.includes(n)?"✓ ":""}{n}{n===myName?" (you)":""}</button>)}</div>}
+      {visiblePool.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>{visiblePool.map(n=><button key={n} onClick={()=>toggleSolo(n)} style={{background:solo.includes(n)?C.tomato:C.white,border:"2px solid "+(n===myName?"#3498db":C.ink),color:solo.includes(n)?C.white:C.ink,borderRadius:20,padding:"7px 16px",fontSize:13,cursor:"pointer",fontWeight:700}}>{solo.includes(n)?"✓ ":""}{n}{n===myName?" (you)":""}</button>)}{hiddenPool.length>0&&!showMorePlayers&&<button onClick={()=>setShowMorePlayers(true)} style={{background:"transparent",border:"2px dashed "+C.muted,color:C.muted,borderRadius:20,padding:"7px 16px",fontSize:12,cursor:"pointer",fontWeight:600}}>+{hiddenPool.length} more</button>}{showMorePlayers&&hiddenPool.map(n=><button key={n} onClick={()=>toggleSolo(n)} style={{background:solo.includes(n)?C.tomato:C.white,border:"2px solid "+C.ink,color:solo.includes(n)?C.white:C.ink,borderRadius:20,padding:"7px 16px",fontSize:13,cursor:"pointer",fontWeight:700,opacity:0.7}}>{solo.includes(n)?"✓ ":""}{n}</button>)}</div>}
+      {visiblePool.length===0&&hiddenPool.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}><button onClick={()=>setShowMorePlayers(true)} style={{background:"transparent",border:"2px dashed "+C.muted,color:C.muted,borderRadius:20,padding:"7px 16px",fontSize:12,cursor:"pointer",fontWeight:600}}>Show {hiddenPool.length} player{hiddenPool.length!==1?"s":""}</button>{showMorePlayers&&hiddenPool.map(n=><button key={n} onClick={()=>toggleSolo(n)} style={{background:solo.includes(n)?C.tomato:C.white,border:"2px solid "+C.ink,color:solo.includes(n)?C.white:C.ink,borderRadius:20,padding:"7px 16px",fontSize:13,cursor:"pointer",fontWeight:700,opacity:0.7}}>{solo.includes(n)?"✓ ":""}{n}</button>)}</div>}
       <div style={{display:"flex",gap:8}}><input style={{...inp,flex:1}} placeholder="Add player…" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNew()}/><Btn primary onClick={addNew}>Add</Btn></div>
     </div>}
     {teamMode&&<div style={{...S.card,padding:16,marginBottom:24}}>
@@ -382,7 +387,8 @@ function SetupScreen({state,dispatch}){
       {teams.slice(0,numTeams).map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={{fontSize:20}}>{TE[i]}</span><input style={{...inp,flex:1,borderColor:TC[i]}} value={t.name} onChange={e=>setTeams(prev=>prev.map((x,j)=>j===i?{...x,name:e.target.value}:x))}/></div>)}
       <h3 style={{...secHead,marginTop:20,marginBottom:10}}>Assign Players</h3>
       {allPool.length===0&&<p style={{color:C.muted,fontSize:13,marginBottom:8}}>Add players below.</p>}
-      {allPool.map(name=>{const ti=teams.slice(0,numTeams).findIndex(t=>t.members.includes(name));return(<div key={name} style={{display:"flex",alignItems:"center",gap:8,background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"10px 12px",marginBottom:8}}><span style={{flex:1,fontSize:14,fontWeight:700}}>{name}{name===myName?" (you)":""}</span><div style={{display:"flex",gap:6}}>{teams.slice(0,numTeams).map((t,i)=><button key={i} onClick={()=>assignTeam(name,i)} style={{width:34,height:34,borderRadius:8,border:"2px solid "+(ti===i?TC[i]:C.ink),background:ti===i?TC[i]:C.white,color:ti===i?C.white:C.ink,fontSize:16,cursor:"pointer",fontWeight:700}}>{TE[i]}</button>)}</div></div>)})}
+      {[...visiblePool,...(showMorePlayers?hiddenPool:[])].map(name=>{const ti=teams.slice(0,numTeams).findIndex(t=>t.members.includes(name));return(<div key={name} style={{display:"flex",alignItems:"center",gap:8,background:C.white,border:"2px solid "+C.ink,borderRadius:10,padding:"10px 12px",marginBottom:8,opacity:hiddenPool.includes(name)&&!teams.flat().map(t=>t.members).flat().includes(name)?0.7:1}}><span style={{flex:1,fontSize:14,fontWeight:700}}>{name}{name===myName?" (you)":""}</span><div style={{display:"flex",gap:6}}>{teams.slice(0,numTeams).map((t,i)=><button key={i} onClick={()=>assignTeam(name,i)} style={{width:34,height:34,borderRadius:8,border:"2px solid "+(ti===i?TC[i]:C.ink),background:ti===i?TC[i]:C.white,color:ti===i?C.white:C.ink,fontSize:16,cursor:"pointer",fontWeight:700}}>{TE[i]}</button>)}</div></div>)})}
+      {!showMorePlayers&&hiddenPool.length>0&&<button onClick={()=>setShowMorePlayers(true)} style={{width:"100%",background:"transparent",border:"2px dashed "+C.muted,color:C.muted,borderRadius:10,padding:"10px",fontSize:12,cursor:"pointer",fontWeight:600,marginBottom:8}}>+{hiddenPool.length} more player{hiddenPool.length!==1?"s":""}</button>}
       <div style={{display:"flex",gap:8,marginTop:12}}><input style={{...inp,flex:1}} placeholder="Add player…" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNew()}/><Btn primary onClick={addNew}>Add</Btn></div>
       <div style={{marginTop:16}}>{teams.slice(0,numTeams).map((t,i)=><div key={i} style={{borderLeft:"4px solid "+TC[i],paddingLeft:12,marginBottom:8}}><span style={{fontWeight:700,color:TC[i]}}>{TE[i]} {t.name}</span><span style={{color:C.muted,fontSize:12,marginLeft:8}}>{t.members.length?t.members.join(", "):"Empty"}</span></div>)}</div>
     </div>}
@@ -447,6 +453,30 @@ function PlayerPopup({player, history, fu, now, onClose}) {
                     })}
                   </div>
               }
+            </div>
+          );
+        })()}
+        {(function() {
+          var since90 = new Date(); since90.setDate(since90.getDate() - 90);
+          var topGames = getTopGamesForPlayer(player.key, player.name, history, 3, since90);
+          if (topGames.length === 0) return null;
+          return (
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Favorite Games (last 90 days)</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {topGames.map(function(g, i) {
+                  return (
+                    <div key={g.name} style={{display:"flex",alignItems:"center",gap:12,background:C.card,border:"2px solid "+C.ink,borderRadius:10,padding:"10px 14px"}}>
+                      <span style={{fontSize:22,lineHeight:1}}>{g.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:14,fontFamily:"Georgia,serif"}}>{g.name}</div>
+                        <div style={{fontSize:11,color:C.muted}}>{g.count} game{g.count!==1?"s":""} played</div>
+                      </div>
+                      <div style={{fontSize:14,letterSpacing:1}}>{"❤️".repeat(3-i)}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
