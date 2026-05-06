@@ -72,7 +72,8 @@ var EMOJI_OPTIONS = [
 var WIN_WEIGHT = 0.6;
 var VOLUME_WEIGHT = 0.4;
 
-// Independent scoring: effective = average * min(1, gamesPlayed / INDIE_VOLUME_CAP)
+// Independent scoring (high-wins): effective = avg * min(1, count/cap)
+// Independent scoring (low-wins):  effective = avg + (maxScore - avg) * (1 - min(1, count/cap))
 var INDIE_VOLUME_CAP = 10;
 
 // Default tier for games without one set
