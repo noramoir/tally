@@ -450,7 +450,7 @@ function buildLeaderboard(history, fu) {
   history.forEach(function(g) {
     if (!g.finished || g.scoringType !== "independent") return;
     var k = g.gameKey === "custom" ? gameName(g) : g.gameKey;
-    if (!indGames[k]) indGames[k] = { entries: {}, tier: g.tier || DEFAULT_TIER, lowWins: !!g.lowWins };
+    if (!indGames[k]) indGames[k] = { entries: {}, tier: g.tier || DEFAULT_TIER, lowWins: !!g.lowWins, maxScore: g.maxScore || DEFAULT_MAX_SCORE };
     g.players.forEach(function(p) {
       var sc = parseFloat(p.scores && p.scores.Score) || 0;
       var pk = pkey(p);
@@ -464,7 +464,11 @@ function buildLeaderboard(history, fu) {
     var best = ig.lowWins ? Infinity : -1, effs = {};
     Object.entries(ig.entries).forEach(function(e) {
       var n = e[0], total = e[1].total, count = e[1].count;
-      var eff = (total / count) * Math.min(1, count / INDIE_VOLUME_CAP);
+      var avg = total / count;
+      var fraction = Math.min(1, count / INDIE_VOLUME_CAP);
+      var eff = ig.lowWins
+        ? avg + (ig.maxScore - avg) * (1 - fraction)
+        : avg * fraction;
       effs[n] = eff;
       if (ig.lowWins ? (eff < best) : (eff > best)) best = eff;
     });
@@ -680,14 +684,17 @@ function getWoodenSpoon(lb) {
 function buildIndependentRankings(history, gameKey, fu) {
   fu = fu || {};
   var entries = {};
-  var maxScore = 50;
+  var maxScore = DEFAULT_MAX_SCORE;
   var lowWins = false;
+  var thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   history.forEach(function(g) {
     if (!g.finished || g.scoringType !== "independent") return;
     var gk = g.gameKey === "custom" ? gameName(g) : g.gameKey;
     if (gk !== gameKey) return;
     if (g.maxScore) maxScore = g.maxScore;
     if (g.lowWins) lowWins = true;
+    var gDate = new Date(g.finishedAt || g.startedAt);
+    if (gDate.getTime() < thirtyDaysAgo) return;
     g.players.forEach(function(p) {
       var k = pkey(p);
       var dn = rname(p, fu);
@@ -701,7 +708,10 @@ function buildIndependentRankings(history, gameKey, fu) {
   });
   return Object.values(entries).map(function(e) {
     var avg = e.count > 0 ? e.total / e.count : 0;
-    var effective = avg * Math.min(1, e.count / INDIE_VOLUME_CAP);
+    var fraction = Math.min(1, e.count / INDIE_VOLUME_CAP);
+    var effective = lowWins
+      ? avg + (maxScore - avg) * (1 - fraction)
+      : avg * fraction;
     return { name: e.name, key: e.key, avg: avg, count: e.count, effective: effective, maxScore: maxScore, lastPlayed: e.lastPlayed };
   }).sort(function(a, b) { return lowWins ? (a.effective - b.effective) : (b.effective - a.effective); });
 }
