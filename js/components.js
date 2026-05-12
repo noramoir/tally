@@ -128,7 +128,7 @@ useEffect(() => {
   }, [state.family, state.current]);
 
   const timerProps = { timerSet, setTimerSet, timerRem, setTimerRem, timerRun, setTimerRun, timerRepeat, setTimerRepeat, timerSound, setTimerSound };
-  const screens = { welcome: WelcomeScreen, home: HomeScreen, setup: SetupScreen, game: GameScreen, history: HistoryScreen, historyDetail: HistoryDetail, leaderboard: LeaderboardScreen, family: FamilyScreen, timer: TimerScreen };
+  const screens = { welcome: WelcomeScreen, home: HomeScreen, setup: SetupScreen, game: GameScreen, history: HistoryScreen, historyDetail: HistoryDetail, leaderboard: LeaderboardScreen, family: FamilyScreen, timer: TimerScreen, scoring: ScoringScreen };
   const Screen = screens[state.screen] || HomeScreen;
   const showNav = state.screen !== "welcome";
 
@@ -204,7 +204,7 @@ function WelcomeScreen({ state, dispatch }) {
 
 /* ═══ Bottom Nav ═══ */
 function BottomNav({ screen, dispatch, state }) {
-  const tabs = [{ id: "home", label: "Home", icon: "🏠" }, { id: "leaderboard", label: "Board", icon: "🏆" }, { id: "timer", label: "Timer", icon: "⏱" }, { id: "history", label: "History", icon: "📋" }, { id: "family", label: "Family", icon: "👨‍👩‍👧" }];
+  const tabs = [{ id: "home", label: "Play", icon: "🎲" }, { id: "leaderboard", label: "Board", icon: "🏆" }, { id: "timer", label: "Timer", icon: "⏱" }, { id: "history", label: "History", icon: "📋" }, { id: "family", label: "Settings", icon: "👨‍👩‍👧" }];
   return (<div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: "3px solid " + C.ink, display: "flex" }}>
     {!!state.current && screen !== "game" && <button onClick={() => dispatch({ type: "GO", screen: "game" })} style={{ position: "absolute", top: -44, left: "50%", transform: "translateX(-50%)", background: C.tomato, border: "2px solid " + C.ink, color: C.white, borderRadius: 20, padding: "8px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "3px 3px 0 " + C.ink }}>▶ Resume Game</button>}
     {tabs.map(t => <button key={t.id} onClick={() => dispatch({ type: "GO", screen: t.id })} style={{ flex: 1, background: "none", border: "none", color: screen === t.id ? C.tomato : C.ink, padding: "10px 0 8px", cursor: "pointer", fontSize: 11, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontWeight: 900 }}><span style={{ fontSize: 18 }}>{t.icon}</span>{t.label}</button>)}
@@ -401,7 +401,7 @@ function GameScreen({state,dispatch,finishGame}){const game=state.current;const[
 
 function CaptureScores({game,dispatch,finishGame,catIdx,setCatIdx,onBack,lowWins}){const isInd=game.scoringType==="independent";const isTeam=game.teamMode&&game.teams;const cat=game.categories[catIdx]||game.categories[0];const maxVal=isInd?(game.maxScore||50):Infinity;return(<div style={{padding:"0 0 140px"}}><div onClick={onBack} style={{background:C.lime,color:C.ink,textAlign:"center",padding:"14px",fontSize:15,fontWeight:900,cursor:"pointer",borderBottom:"2px solid "+C.ink}}>🏆 Live Score Overview</div>{game.categories.length>1&&<div style={{textAlign:"center",padding:"16px 20px 8px"}}><div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:2}}>Scoring Category</div><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12}}><button onClick={()=>setCatIdx(i=>(i-1+game.categories.length)%game.categories.length)} style={{width:40,height:40,borderRadius:20,border:"2px solid "+C.ink,background:C.card,fontSize:18,cursor:"pointer",fontWeight:900}}>◀</button><div style={{minWidth:120}}><div style={{fontSize:18,fontWeight:900,fontFamily:"Georgia,serif"}}>{cat}</div><div style={{fontSize:11,color:C.muted}}>{catIdx+1} of {game.categories.length}</div></div><button onClick={()=>setCatIdx(i=>(i+1)%game.categories.length)} style={{width:40,height:40,borderRadius:20,border:"2px solid "+C.ink,background:C.card,fontSize:18,cursor:"pointer",fontWeight:900}}>▶</button></div></div>}{lowWins&&<div style={{textAlign:"center",padding:"8px 16px",fontSize:11,color:C.muted}}>⬇️ Lowest score wins</div>}<div style={{padding:"12px 16px"}}>{game.players.map((p,pi)=>{const ci=isTeam?game.teams.findIndex(t=>t.name===p.name):pi;const dark=TC[ci%TC.length];const light=TCL[ci%TCL.length];const score=parseFloat(p.scores[cat])||0;const teamMembers=isTeam?(game.teams[ci] && game.teams[ci].members):null;return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:12,marginBottom:8,background:pi%2===0?C.card:C.white,border:"2px solid "+C.ink}}><div style={{flex:1,minWidth:0}}><div style={{fontWeight:900,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>{teamMembers&&<div style={{fontSize:10,color:C.muted}}>{teamMembers.join(", ")}</div>}</div><button onClick={()=>{if(score>0)dispatch({type:"SET_SCORE",pi,cat,val:String(Math.max(0,score-1))})}} style={{width:44,height:44,borderRadius:10,border:"2px solid "+C.ink,background:light,color:C.ink,fontSize:22,fontWeight:900,cursor:score<=0?"not-allowed":"pointer",opacity:score<=0?0.4:1,flexShrink:0}}>−</button><button onClick={()=>{if(score<maxVal)dispatch({type:"SET_SCORE",pi,cat,val:String(Math.min(maxVal,score+1))})}} style={{width:44,height:44,borderRadius:10,border:"2px solid "+C.ink,background:dark,color:C.white,fontSize:22,fontWeight:900,cursor:score>=maxVal?"not-allowed":"pointer",opacity:score>=maxVal?0.4:1,flexShrink:0}}>+</button><input type="number" inputMode="decimal" step="any" value={p.scores[cat]} onChange={e=>dispatch({type:"SET_SCORE",pi,cat,val:e.target.value})} style={{width:64,background:C.white,border:"2px solid "+C.ink,borderRadius:10,color:C.ink,textAlign:"center",padding:"10px 4px",fontSize:16,fontWeight:900,flexShrink:0}}/></div>)})}</div><div style={{padding:"16px",position:"fixed",bottom:56,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.card,borderTop:"3px solid "+C.ink}}><Btn full primary onClick={()=>{onBack();finishGame()}}>✅ Finish {"&"} Save</Btn></div></div>);}
 
-function LeaderboardScreen({state}){const fu=state.familyUsers||{};const[tab,setTab]=useState("topPlayer");const[indGame,setIndGame]=useState(null);const[openMonth,setOpenMonth]=useState(null);const[selectedPlayer,setSelectedPlayer]=useState(null);const[selectedIndPlayer,setSelectedIndPlayer]=useState(null);const now=new Date();const lb=buildLeaderboardForMonth(state.history,fu,now.getFullYear(),now.getMonth());const indGameKeys={};state.history.forEach(g=>{if(g.finished&&g.scoringType==="independent"){const k=g.gameKey==="custom"?gameName(g):g.gameKey;if(!indGameKeys[k])indGameKeys[k]={name:gameName(g),emoji:gameEmoji(g)}}});Object.entries(state.templates||{}).forEach(([k,t])=>{if(t.scoringType==="independent"&&!indGameKeys[k])indGameKeys[k]={name:t.name||t.gameName||k,emoji:t.emoji||"⭐"}});const indList=Object.entries(indGameKeys);const activeInd=indGame||(indList[0] ? indList[0][0] : null)||null;const tabs=[{id:"topPlayer",icon:"⭐",label:"Top",sort:(a,b)=>b.points-a.points,val:p=>`${p.points}pts`,sub:"Total points"},{id:"mostWins",icon:"🏆",label:"Wins",sort:(a,b)=>b.wins-a.wins,val:p=>`${p.wins%1===0?p.wins:p.wins.toFixed(2)}W`,sub:"Total wins"},{id:"topTime",icon:"🎮",label:"Games",sort:(a,b)=>b.games-a.games,val:p=>`${p.games}G`,sub:"Most played"},{id:"independent",icon:"⭐",label:"Scored",sort:null,val:null,sub:"Independent scoring"}];const cur=tabs.find(t=>t.id===tab);if(!lb.length&&!indList.length)return<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><p style={{color:C.muted,textAlign:"center",marginTop:60}}>Play some games first!</p></div>;const sorted=lb.length&&cur.sort?[...lb].sort(cur.sort):[];const ranks=sorted.length?getRanks(sorted,p=>tab==="topPlayer"?p.points:tab==="mostWins"?p.wins:p.games):[];const indR=tab==="independent"&&activeInd?buildIndependentRankings(state.history,activeInd,fu):[];const indRanks=indR.length?getRanks(indR,p=>p.effective):[];return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:12,marginBottom:20}}>{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flexShrink:0,background:tab===t.id?C.tomato:C.card,border:"2px solid "+C.ink,color:tab===t.id?C.white:C.ink,borderRadius:20,padding:"8px 14px",fontSize:12,cursor:"pointer",fontWeight:700,boxShadow:tab===t.id?"2px 2px 0 "+C.ink:"none"}}>{t.icon} {t.label}</button>)}</div>{tab!=="independent"&&sorted.length>0&&<>{sorted.length>=3&&(()=>{const po=[sorted[1],sorted[0],sorted[2]];const pr=[ranks[1],ranks[0],ranks[2]];const baseH={1:130,2:90,3:75};const heights=pr.map(r=>baseH[r]||60);const bgs=[C.bg,C.lime,C.card];return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8,marginBottom:24,height:150}}>{po.map((p,ri)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",cursor:"pointer"}}><div style={{fontSize:12,textAlign:"center",fontWeight:700,marginBottom:2}}>{p.name}</div><div style={{fontSize:12,color:C.tomato,fontWeight:900,marginBottom:4}}>{cur.val(p)}</div><div style={{width:"100%",height:heights[ri],background:bgs[ri],border:"2px solid "+C.ink,borderRadius:"8px 8px 0 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>{medal(pr[ri])}</div></div>)}</div>)})()}<h3 style={{...secHead,marginBottom:12}}>{cur.sub}</h3>{sorted.map((p,i)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:ranks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(ranks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.wins%1===0?p.wins:p.wins.toFixed(2)}W / {p.games}G</div></div><div style={{fontWeight:900,color:C.tomato,fontSize:20,fontFamily:"Georgia,serif"}}>{cur.val(p)}</div></div>)}</>}{tab==="independent"&&<div>{indList.length===0?<p style={{color:C.muted,textAlign:"center",marginTop:40}}>No scored games yet.</p>:<div><select value={activeInd||""} onChange={e=>setIndGame(e.target.value)} style={{...inp,marginBottom:20,fontSize:14}}>{indList.map(([k,{name,emoji}])=><option key={k} value={k}>{emoji} {name}</option>)}</select><ScoredInfoBlock />{indR.length===0?<p style={{color:C.muted,textAlign:"center"}}>No games yet.</p>:indR.map((p,i)=><div key={p.name} onClick={()=>setSelectedIndPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:indRanks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(indRanks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.count}G · avg {p.avg.toFixed(1)}/{p.maxScore}{p.lastPlayed&&<span> · {new Date(p.lastPlayed).toLocaleDateString()}</span>}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:900,color:C.tomato,fontSize:18,fontFamily:"Georgia,serif"}}>{p.effective.toFixed(1)}</div><div style={{fontSize:10,color:C.muted}}>eff</div></div></div>)}</div>}</div>}<HistoricalWins history={state.history} fu={fu} openMonth={openMonth} setOpenMonth={setOpenMonth}/>{selectedPlayer&&<PlayerPopup player={selectedPlayer} history={state.history} fu={fu} now={now} onClose={()=>setSelectedPlayer(null)}/>}{selectedIndPlayer&&<IndPlayerPopup player={selectedIndPlayer} history={state.history} fu={fu} now={now} activeInd={activeInd} indGameKeys={indGameKeys} onClose={()=>setSelectedIndPlayer(null)}/>}</div>);}
+function LeaderboardScreen({state,dispatch}){const fu=state.familyUsers||{};const[tab,setTab]=useState("topPlayer");const[indGame,setIndGame]=useState(null);const[openMonth,setOpenMonth]=useState(null);const[selectedPlayer,setSelectedPlayer]=useState(null);const[selectedIndPlayer,setSelectedIndPlayer]=useState(null);const now=new Date();const lb=buildLeaderboardForMonth(state.history,fu,now.getFullYear(),now.getMonth());const indGameKeys={};state.history.forEach(g=>{if(g.finished&&g.scoringType==="independent"){const k=g.gameKey==="custom"?gameName(g):g.gameKey;if(!indGameKeys[k])indGameKeys[k]={name:gameName(g),emoji:gameEmoji(g)}}});Object.entries(state.templates||{}).forEach(([k,t])=>{if(t.scoringType==="independent"&&!indGameKeys[k])indGameKeys[k]={name:t.name||t.gameName||k,emoji:t.emoji||"⭐"}});const indList=Object.entries(indGameKeys);const activeInd=indGame||(indList[0] ? indList[0][0] : null)||null;const tabs=[{id:"topPlayer",icon:"⭐",label:"Top",sort:(a,b)=>b.points-a.points,val:p=>`${p.points}pts`,sub:"Total points"},{id:"mostWins",icon:"🏆",label:"Wins",sort:(a,b)=>b.wins-a.wins,val:p=>`${p.wins%1===0?p.wins:p.wins.toFixed(2)}W`,sub:"Total wins"},{id:"topTime",icon:"🎮",label:"Games",sort:(a,b)=>b.games-a.games,val:p=>`${p.games}G`,sub:"Most played"},{id:"independent",icon:"⭐",label:"Scored",sort:null,val:null,sub:"Independent scoring"}];const cur=tabs.find(t=>t.id===tab);if(!lb.length&&!indList.length)return<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><button onClick={()=>dispatch({type:"GO",screen:"scoring"})} style={{width:"100%",background:C.card,border:"2px solid "+C.ink,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"2px 2px 0 "+C.ink}}>❓ How does scoring work?<span style={{color:C.muted}}>→</span></button><p style={{color:C.muted,textAlign:"center",marginTop:60}}>Play some games first!</p></div>;const sorted=lb.length&&cur.sort?[...lb].sort(cur.sort):[];const ranks=sorted.length?getRanks(sorted,p=>tab==="topPlayer"?p.points:tab==="mostWins"?p.wins:p.games):[];const indR=tab==="independent"&&activeInd?buildIndependentRankings(state.history,activeInd,fu):[];const indRanks=indR.length?getRanks(indR,p=>p.effective):[];return(<div style={{padding:"20px 20px 80px"}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:900,marginBottom:2}}>🏆 Leaderboard</h2><div style={{fontSize:12,color:C.muted,marginBottom:16}}>{MNAMES[now.getMonth()]} {now.getFullYear()} Season</div><button onClick={()=>dispatch({type:"GO",screen:"scoring"})} style={{width:"100%",background:C.card,border:"2px solid "+C.ink,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"2px 2px 0 "+C.ink}}>❓ How does scoring work?<span style={{color:C.muted}}>→</span></button><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:12,marginBottom:20}}>{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flexShrink:0,background:tab===t.id?C.tomato:C.card,border:"2px solid "+C.ink,color:tab===t.id?C.white:C.ink,borderRadius:20,padding:"8px 14px",fontSize:12,cursor:"pointer",fontWeight:700,boxShadow:tab===t.id?"2px 2px 0 "+C.ink:"none"}}>{t.icon} {t.label}</button>)}</div>{tab!=="independent"&&sorted.length>0&&<>{sorted.length>=3&&(()=>{const po=[sorted[1],sorted[0],sorted[2]];const pr=[ranks[1],ranks[0],ranks[2]];const baseH={1:130,2:90,3:75};const heights=pr.map(r=>baseH[r]||60);const bgs=[C.bg,C.lime,C.card];return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8,marginBottom:24,height:150}}>{po.map((p,ri)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",cursor:"pointer"}}><div style={{fontSize:12,textAlign:"center",fontWeight:700,marginBottom:2}}>{p.name}</div><div style={{fontSize:12,color:C.tomato,fontWeight:900,marginBottom:4}}>{cur.val(p)}</div><div style={{width:"100%",height:heights[ri],background:bgs[ri],border:"2px solid "+C.ink,borderRadius:"8px 8px 0 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>{medal(pr[ri])}</div></div>)}</div>)})()}<h3 style={{...secHead,marginBottom:12}}>{cur.sub}</h3>{sorted.map((p,i)=><div key={p.key} onClick={()=>setSelectedPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:ranks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(ranks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.wins%1===0?p.wins:p.wins.toFixed(2)}W / {p.games}G</div></div><div style={{fontWeight:900,color:C.tomato,fontSize:20,fontFamily:"Georgia,serif"}}>{cur.val(p)}</div></div>)}</>}{tab==="independent"&&<div>{indList.length===0?<p style={{color:C.muted,textAlign:"center",marginTop:40}}>No scored games yet.</p>:<div><select value={activeInd||""} onChange={e=>setIndGame(e.target.value)} style={{...inp,marginBottom:20,fontSize:14}}>{indList.map(([k,{name,emoji}])=><option key={k} value={k}>{emoji} {name}</option>)}</select><ScoredInfoBlock />{indR.length===0?<p style={{color:C.muted,textAlign:"center"}}>No games yet.</p>:indR.map((p,i)=><div key={p.name} onClick={()=>setSelectedIndPlayer(p)} style={{...S.card,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:indRanks[i]===1?C.lime:C.card}}><span style={{fontSize:22,width:28,textAlign:"center"}}>{medal(indRanks[i])}</span><div style={{flex:1}}><div style={{fontWeight:900,fontFamily:"Georgia,serif",fontSize:16}}>{p.name}</div><div style={{fontSize:11,color:C.muted}}>{p.count}G · avg {p.avg.toFixed(1)}/{p.maxScore}{p.lastPlayed&&<span> · {new Date(p.lastPlayed).toLocaleDateString()}</span>}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:900,color:C.tomato,fontSize:18,fontFamily:"Georgia,serif"}}>{p.effective.toFixed(1)}</div><div style={{fontSize:10,color:C.muted}}>eff</div></div></div>)}</div>}</div>}<HistoricalWins history={state.history} fu={fu} openMonth={openMonth} setOpenMonth={setOpenMonth}/>{selectedPlayer&&<PlayerPopup player={selectedPlayer} history={state.history} fu={fu} now={now} onClose={()=>setSelectedPlayer(null)}/>}{selectedIndPlayer&&<IndPlayerPopup player={selectedIndPlayer} history={state.history} fu={fu} now={now} activeInd={activeInd} indGameKeys={indGameKeys} onClose={()=>setSelectedIndPlayer(null)}/>}</div>);}
 
 function PlayerPopup({player, history, fu, now, onClose}) {
   const curLb = buildLeaderboardForMonth(history, fu, now.getFullYear(), now.getMonth());
@@ -711,7 +711,166 @@ function TierBadge({ tier }) {
 }
 /* ═══ Shared UI ═══ */
 function TopBar({title,onBack}){return<div style={{display:"flex",alignItems:"center",marginBottom:24,gap:12}}><button onClick={onBack} style={{background:C.card,border:"2px solid "+C.ink,borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:18,fontWeight:900,boxShadow:"2px 2px 0 "+C.ink}}>←</button><h2 style={{margin:0,fontSize:20,fontFamily:"Georgia,serif",fontWeight:900}}>{title}</h2></div>}
-function Btn({children,onClick,full,primary,disabled,style}){return<button onClick={onClick} disabled={disabled} style={{width:full?"100%":"auto",background:primary?C.tomato:C.card,color:disabled?C.muted:primary?C.white:C.ink,border:"2px solid "+(disabled?C.muted:C.ink),borderRadius:12,padding:"14px 20px",fontSize:15,cursor:disabled?"not-allowed":"pointer",fontWeight:700,boxShadow:disabled?"none":"3px 3px 0 "+C.ink,...style}}>{children}</button>}
+function Btn({children,onClick,onMouseDown,full,primary,disabled,style}){return<button onClick={onClick} onMouseDown={onMouseDown} disabled={disabled} style={{width:full?"100%":"auto",background:primary?C.tomato:C.card,color:primary?C.white:C.ink,border:"2px solid "+C.ink,borderRadius:12,padding:"14px 20px",fontSize:15,cursor:disabled?"not-allowed":"pointer",fontWeight:700,boxShadow:disabled?"none":"3px 3px 0 "+C.ink,opacity:disabled?0.5:1,...style}}>{children}</button>}
+
+/* ═══ Scoring Info ═══ */
+function ScoringScreen({dispatch}) {
+  const [scores, setScores] = useState({sc:5,sd:5,cp:5,lm:5,du:5});
+  const [showPopup, setShowPopup] = useState(false);
+  const [gameNameInput, setGameNameInput] = useState("");
+  const [explanation, setExplanation] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const ws = 0.30*scores.sc + 0.25*scores.sd + 0.25*scores.cp + 0.10*scores.lm + 0.10*scores.du;
+  const tier = Math.min(5, Math.max(1, Math.ceil(ws/2)));
+  const tierColors = {1:"#aaa",2:"#4e9af1",3:"#f0a500",4:"#e00055",5:"#7c3aed"};
+  const tierLabels = {1:"Very Low",2:"Low",3:"Normal",4:"High",5:"Very High"};
+
+  const factors = [
+    {id:"sc",emoji:"🎯",label:"Skill Ceiling",weight:"30%",sub:"How much does mastery matter?",desc:"The gap between a beginner and an expert. In a high skill-ceiling game, the better player wins consistently — experience, pattern recognition, and deep knowledge of optimal moves make a measurable difference. In a low skill-ceiling game, anyone can win on any given night.",low:"Snakes & Ladders, War",high:"Chess, Dominion, Poker"},
+    {id:"sd",emoji:"🧠",label:"Strategy Depth",weight:"25%",sub:"How far ahead do you need to think?",desc:"The degree to which long-term planning, resource management, and multi-move sequencing determine the outcome. A strategic game rewards players who can hold a plan across many turns and adapt it intelligently — not just react to what's in front of them.",low:"Uno, Jenga",high:"Terraforming Mars, Twilight Imperium"},
+    {id:"cp",emoji:"⚙️",label:"Complexity of Play",weight:"25%",sub:"How much brain power does it cost just to play?",desc:"The cognitive load of engaging with the game at all — the number of rules to hold in your head, the volume of decisions per turn, the interlocking systems you need to track simultaneously. This rewards games where just showing up mentally is an achievement.",low:"Snap, Ludo",high:"Arkham Horror, Great Western Trail, Ark Nova"},
+    {id:"lm",emoji:"🎲",label:"Luck Mitigation",weight:"10%",sub:"Can skill overcome a bad draw?",desc:"Not whether luck exists in the game, but whether a skilled player can work around it. In a high mitigation game, good players find ways to hedge, recover, and outplay variance. In a low mitigation game, the dice simply decide.",low:"Candyland, Snakes & Ladders",high:"Catan (experienced players manage luck well), Poker"},
+    {id:"du",emoji:"⏱️",label:"Duration",weight:"10%",sub:"How long does sustained competition last?",desc:"Longer games create more decision points, more opportunities for skill to express itself, and a greater investment from every player at the table.",low:"Snap, Sushi Go (short format)",high:"Twilight Imperium, Great Western Trail, Agricola"},
+  ];
+
+  const wordCount = explanation.trim().split(/\s+/).filter(Boolean).length;
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setSubmitError("");
+    const res = await db2.submitWeightingFeedback(gameNameInput.trim(), explanation.trim(), scores, ws, tier);
+    setSubmitting(false);
+    if (res.ok) setSubmitted(true);
+    else setSubmitError(res.error || "Something went wrong. Try again.");
+  }
+
+  function openPopup() { setShowPopup(true); setSubmitted(false); setSubmitError(""); setGameNameInput(""); setExplanation(""); }
+
+  return (
+    <div style={{padding:"20px 20px 100px"}}>
+      <TopBar title="How Scoring Works" onBack={()=>dispatch({type:"GO",screen:"leaderboard"})}/>
+
+      <div style={{...S.limeCard,padding:16,marginBottom:16}}>
+        <div style={{...secHead,marginBottom:12}}>The Leaderboard</div>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}>The leaderboard runs on a <strong>monthly season</strong> — points reset at the start of each month, so everyone gets a fresh shot.</p>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 10px"}}>Every finished game awards points based on where you placed:</p>
+        <div style={{...S.card,overflow:"hidden",padding:0,marginBottom:12}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr style={{background:C.ink}}>
+              <th style={{padding:"8px 10px",color:C.white,textAlign:"left",fontSize:11}}>Players</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>1st</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>2nd</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>3rd</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>4th+</th>
+            </tr></thead>
+            <tbody>
+              <tr style={{background:C.white}}><td style={{padding:"8px 10px",fontWeight:700}}>2 players</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>10</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>3</td><td style={{textAlign:"center",color:C.muted}}>—</td><td style={{textAlign:"center",color:C.muted}}>—</td></tr>
+              <tr style={{background:C.card}}><td style={{padding:"8px 10px",fontWeight:700}}>3 players</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>10</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>8</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>3</td><td style={{textAlign:"center",color:C.muted}}>—</td></tr>
+              <tr style={{background:C.white}}><td style={{padding:"8px 10px",fontWeight:700}}>4+ players</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>10</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>8</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>5</td><td style={{textAlign:"center",fontWeight:900,color:C.tomato}}>3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}>Yes — <strong>everyone gets points, even if you lose.</strong> This might read a lot like a bad example of millennials and Gen-Zs always getting a participation award, but really: you still stopped doom scrolling, set up the game, and played it through. That's a win in itself — have some points.</p>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}><strong>Game tiers change everything.</strong> Each game has a tier from 1 to 5, based on how much skill, strategy, and complexity it demands. Your placement points are multiplied by that tier — so winning a Tier 4 game earns you four times more than winning a Tier 1 game. A nail-biter of Terraforming Mars counts for a lot more than a quick round of Uno.</p>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}><strong>Ties</strong> split the points for those positions equally between the players who tied.</p>
+        <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}><strong>Team games</strong> — points are earned by the team as a whole, then divided equally among members.</p>
+        <p style={{fontSize:14,lineHeight:1.6,margin:0}}><strong>Scored games</strong> (like Wordle or a quiz) give you a personal score rather than a head-to-head result. For these, whoever holds the highest effective score earns 5 points × the game's tier. Your "effective" score rewards consistency — the more you've played, the more your average counts toward your ranking.</p>
+      </div>
+
+      <div style={{textAlign:"center",fontSize:16,fontWeight:900,marginBottom:16,fontFamily:"Georgia,serif"}}>Here's how game weighting is calculated 👇</div>
+
+      {factors.map(f=>(
+        <div key={f.id} style={{...S.card,padding:16,marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+            <span style={{fontSize:20}}>{f.emoji}</span>
+            <strong style={{fontSize:15}}>{f.label}</strong>
+            <span style={{background:C.tomato,color:C.white,fontSize:10,fontWeight:900,padding:"2px 7px",borderRadius:10,marginLeft:2}}>{f.weight}</span>
+            <span style={{marginLeft:"auto",fontSize:22,fontWeight:900,color:C.tomato}}>{scores[f.id]}</span>
+          </div>
+          <p style={{fontSize:12,color:C.tomato,fontStyle:"italic",margin:"0 0 4px 30px"}}>{f.sub}</p>
+          <p style={{fontSize:12,color:C.muted,margin:"0 0 10px 30px"}}>{f.desc}</p>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:4}}>
+            <span>⬅ Low: {f.low}</span><span>High: {f.high} ➡</span>
+          </div>
+          <input type="range" min="1" max="10" value={scores[f.id]} onChange={e=>setScores(s=>({...s,[f.id]:+e.target.value}))} style={{width:"100%",accentColor:C.tomato}}/>
+        </div>
+      ))}
+
+      <div style={{...S.card,padding:16,marginBottom:16,borderColor:tierColors[tier]}}>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:12}}>
+          <div style={{background:tierColors[tier],color:"#fff",width:52,height:52,borderRadius:"50% 50% 40% 40%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,flexShrink:0}}>{tier}</div>
+          <div>
+            <div style={{fontSize:20,fontWeight:900,color:tierColors[tier],fontFamily:"Georgia,serif"}}>Tier {tier} — {tierLabels[tier]}</div>
+            <div style={{fontSize:12,color:C.muted}}>Precise score: <strong style={{color:C.ink}}>{ws.toFixed(3)}</strong> / 10</div>
+          </div>
+        </div>
+        <div style={{...S.card,overflow:"hidden",padding:0,marginBottom:16}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr style={{background:C.ink}}>
+              <th style={{padding:"8px 10px",color:C.white,textAlign:"left",fontSize:11}}>Factor</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>Weight</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"center",fontSize:11}}>Rating</th>
+              <th style={{padding:"8px 6px",color:C.white,textAlign:"right",fontSize:11}}>Score</th>
+            </tr></thead>
+            <tbody>
+              {[["🎯 Skill Ceiling","30%",scores.sc,(scores.sc*0.30)],["🧠 Strategy Depth","25%",scores.sd,(scores.sd*0.25)],["⚙️ Complexity","25%",scores.cp,(scores.cp*0.25)],["🎲 Luck Mitigation","10%",scores.lm,(scores.lm*0.10)],["⏱️ Duration","10%",scores.du,(scores.du*0.10)]].map(([label,w,rating,contrib],i)=>(
+                <tr key={label} style={{background:i%2===0?C.white:C.card}}>
+                  <td style={{padding:"8px 10px"}}>{label}</td>
+                  <td style={{padding:"8px 6px",textAlign:"center",color:C.muted}}>{w}</td>
+                  <td style={{padding:"8px 6px",textAlign:"center",fontWeight:700}}>{rating} / 10</td>
+                  <td style={{padding:"8px 6px",textAlign:"right",fontWeight:700,color:C.tomato}}>{contrib.toFixed(2)}</td>
+                </tr>
+              ))}
+              <tr style={{borderTop:"2px solid "+C.ink,background:C.lime}}>
+                <td colSpan={3} style={{padding:"10px 10px",fontWeight:900}}>Weighted Total</td>
+                <td style={{padding:"10px 6px",textAlign:"right",fontWeight:900,fontSize:15,color:C.tomato}}>{ws.toFixed(3)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <Btn full onClick={openPopup}>Recommend this new game weighting</Btn>
+      </div>
+
+      {showPopup&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",overflowY:"auto"}}>
+          <div style={{background:C.bg,borderRadius:16,border:"3px solid "+C.ink,boxShadow:"4px 4px 0 "+C.ink,width:"100%",maxWidth:440,padding:24}}>
+            {submitted?(
+              <div style={{textAlign:"center",padding:"20px 0"}}>
+                <div style={{fontSize:44,marginBottom:12}}>🎲</div>
+                <div style={{fontSize:20,fontWeight:900,fontFamily:"Georgia,serif",marginBottom:8}}>Nice!</div>
+                <p style={{color:C.muted,fontSize:14,margin:"0 0 20px"}}>Leadership will review your submission.</p>
+                <Btn full onClick={()=>setShowPopup(false)}>Done</Btn>
+              </div>
+            ):(
+              <>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <h3 style={{margin:0,fontFamily:"Georgia,serif",fontWeight:900}}>Recommend a Weighting</h3>
+                  <button onClick={()=>setShowPopup(false)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:C.ink,lineHeight:1}}>✕</button>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{...secHead,marginBottom:6}}>Game Name</div>
+                  <input style={{...inp}} placeholder="e.g. Terraforming Mars" value={gameNameInput} onChange={e=>setGameNameInput(e.target.value)}/>
+                </div>
+                <div style={{marginBottom:20}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <div style={{...secHead,margin:0}}>Why this weighting?</div>
+                    <div style={{fontSize:11,color:wordCount>100?C.tomato:C.muted}}>{wordCount} / 100 words</div>
+                  </div>
+                  <textarea style={{...inp,height:120,resize:"none"}} placeholder="Explain your reasoning in up to 100 words..." value={explanation} onChange={e=>setExplanation(e.target.value)}/>
+                </div>
+                {submitError&&<div style={{background:"#fde8e8",color:"#c0392b",border:"2px solid #c0392b",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12}}>⚠ {submitError}</div>}
+                <Btn full primary disabled={!gameNameInput.trim()||submitting} onMouseDown={e=>e.preventDefault()} onClick={handleSubmit}>{submitting?"Submitting…":"Submit"}</Btn>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ═══ Mount ═══
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
