@@ -197,6 +197,17 @@ var db2 = {
     }
   },
 
+  async submitWeightingFeedback(gameName, explanation, scores, weightedScore, tier) {
+    if (!sb) return { ok: false, error: "Supabase not configured" };
+    try {
+      const { error } = await sb.from("tally_weighting_feedback").insert({
+        game_name: gameName, explanation, scores, weighted_score: weightedScore, tier,
+      });
+      if (error) { console.error("Weighting feedback insert failed:", error); return { ok: false, error: error.message }; }
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false, error: e.message || "Unknown error" }; }
+  },
+
   // ── Row Converters ──
   gameToRow: function(g) {
     return {
