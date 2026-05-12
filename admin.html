@@ -42,6 +42,11 @@
     .mt-16 { margin-top: 16px; }
     .mb-8 { margin-bottom: 8px; }
     .text-muted { color: var(--muted); font-size: 12px; }
+    .tier-select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: inherit; width: auto; margin-bottom: 0; cursor: pointer; }
+    .tier-shield { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 50% 50% 40% 40%; font-size: 13px; font-weight: 900; border: 2px solid var(--border); }
+    .tier-1 { background: #aaa; color: #fff; } .tier-2 { background: #4e9af1; color: #fff; }
+    .tier-3 { background: #f0a500; color: #fff; } .tier-4 { background: #e05; color: #fff; }
+    .tier-5 { background: #7c3aed; color: #fff; }
   </style>
 </head>
 <body>
@@ -73,6 +78,11 @@ let tab = "overview";
 let status = null;
 let editingKey = null;
 let editJson = "";
+let weightsFamilies = [];  // [{id, code}]
+let weightsTemplates = {}; // familyId -> [{id, template_key, name, emoji, tier, ...}]
+let weightsGames = {};     // familyId -> [{id, original_id, game_name, game_key, tier, finished, finished_at, ...}]
+let weightsLoaded = false;
+let weightsExpanded = {};  // `${familyId}:${templateKey}` -> bool
 
 // ─── Render ──────────────────────────────────────
 function render() {
@@ -189,6 +199,76 @@ function render() {
     `;
   }
 
+  else if (tab === "weights") {
+    if (!weightsLoaded) {
+      content = `
+        ${statusHtml}
+        <div class="card">
+          <p class="text-muted mb-8">Edit the tier (1–5) for each game template. Changes save immediately to the database and will be respected by the app on the next game start.</p>
+          <button class="small" onclick="loadWeights()">🔍 Load Families & Templates</button>
+        </div>
+      `;
+    } else if (weightsFamilies.length === 0) {
+      content = `${statusHtml}<p class="text-muted">No families found.</p>`;
+    } else {
+      const tierLabels = { 1: "1 – Very Low", 2: "2 – Low", 3: "3 – Normal", 4: "4 – High", 5: "5 – Very High" };
+      const tierOpts = [1,2,3,4,5].map(n => `<option value="${n}">${tierLabels[n]}</option>`).join("");
+      let sections = weightsFamilies.map(fam => {
+        const tpls = weightsTemplates[fam.id] || [];
+        const games = (weightsGames[fam.id] || []).filter(g => g.finished);
+        if (!tpls.length) return `<div class="card"><strong>${fam.code}</strong><span class="text-muted" style="margin-left:8px">No templates</span></div>`;
+        const rows = tpls.map(t => {
+          const tier = t.tier || 3;
+          const opts = [1,2,3,4,5].map(n => `<option value="${n}"${n===tier?" selected":""}>${tierLabels[n]}</option>`).join("");
+          // Match games by template_key — for built-in games tKey === game_key, for custom tKey === game_name
+          const matched = games.filter(g => (g.game_key === t.template_key) || (g.game_key === "custom" && g.game_name === t.template_key));
+          const expandKey = fam.id + ":" + t.template_key;
+          const isOpen = !!weightsExpanded[expandKey];
+          const gameRows = matched.map(g => {
+            const gTier = g.tier || 3;
+            const gOpts = [1,2,3,4,5].map(n => `<option value="${n}"${n===gTier?" selected":""}>${n}</option>`).join("");
+            const date = g.finished_at ? new Date(g.finished_at).toLocaleDateString() : "—";
+            const players = (g.players || []).map(p => p.name).join(", ");
+            return `<tr>
+              <td><span class="tier-shield tier-${gTier}" style="width:22px;height:22px;line-height:22px;font-size:11px">${gTier}</span></td>
+              <td style="font-size:11px">${date}</td>
+              <td style="font-size:11px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${players}</td>
+              <td><select class="tier-select" onchange="saveGameTier('${fam.id}','${g.id}',this.value,'${fam.code}','${g.original_id}')">${gOpts}</select></td>
+            </tr>`;
+          }).join("");
+          const subSection = matched.length === 0 ? "" : `
+            <tr><td colspan="4" style="padding:0">
+              <details ${isOpen?"open":""} style="margin:0;padding:8px 0 0 0">
+                <summary style="cursor:pointer;font-size:11px;color:var(--muted);padding:4px 0" onclick="toggleExpand('${expandKey}')">
+                  ▶ ${matched.length} game${matched.length===1?"":"s"} · <button class="small" style="padding:3px 8px;font-size:10px;margin-left:8px" onclick="event.preventDefault();event.stopPropagation();applyTemplateTierToGames('${fam.id}','${t.template_key}',${tier},'${fam.code}')">⚡ Apply T${tier} to all</button>
+                </summary>
+                <table style="margin-top:6px"><thead><tr><th style="font-size:10px">Tier</th><th style="font-size:10px">Date</th><th style="font-size:10px">Players</th><th style="font-size:10px">Change</th></tr></thead><tbody>${gameRows}</tbody></table>
+              </details>
+            </td></tr>`;
+          return `<tr>
+            <td><span class="tier-shield tier-${tier}">${tier}</span></td>
+            <td>${t.emoji || "🎲"} <strong>${t.name}</strong></td>
+            <td><code style="font-size:11px;color:var(--muted)">${t.template_key}</code></td>
+            <td><select class="tier-select" onchange="saveTier('${fam.id}','${t.id}',this.value,'${fam.code}','${t.template_key}')">${opts}</select></td>
+          </tr>${subSection}`;
+        }).join("");
+        return `
+          <div class="card" style="margin-bottom:16px">
+            <div class="flex-between mb-8"><strong style="font-size:15px">${fam.code}</strong><span class="text-muted">${tpls.length} templates · ${games.length} finished games</span></div>
+            <table><thead><tr><th>Tier</th><th>Game</th><th>Key</th><th>Change</th></tr></thead><tbody>${rows}</tbody></table>
+          </div>`;
+      }).join("");
+      content = `
+        ${statusHtml}
+        <div class="flex-between mb-8">
+          <p class="text-muted">Template tier sets the default for new games. Expand a row to edit tiers on past games, or use <strong>⚡ Apply</strong> to push the template tier across all matching past games.</p>
+          <button class="small secondary" onclick="loadWeights()">🔄 Refresh</button>
+        </div>
+        ${sections}
+      `;
+    }
+  }
+
   else if (tab === "editor") {
     content = `
       ${statusHtml}
@@ -238,7 +318,7 @@ function render() {
       <div class="flex"><button class="small secondary" onclick="refreshData()">🔄 Refresh</button><button class="small secondary" onclick="loggedIn=false;render()">Logout</button></div>
     </div>
     <div class="tabs">
-      ${["overview","users","families","templates","newdb"].map(t =>
+      ${["overview","users","families","templates","weights","newdb"].map(t =>
         `<div class="tab ${tab===t?'tab-active':'tab-inactive'}" onclick="tab='${t}';render()">${t==='newdb'?'New DB':t.charAt(0).toUpperCase()+t.slice(1)}</div>`
       ).join("")}
     </div>
@@ -362,6 +442,82 @@ async function loadNewDb() {
     html += "</div>";
   }
   el.innerHTML = html;
+}
+
+// ─── Weights Tab ─────────────────────────────────
+async function loadWeights() {
+  status = { ok: true, msg: "Loading families…" };
+  render();
+  weightsFamilies = await dbNewFamilies();
+  weightsTemplates = {};
+  weightsGames = {};
+  for (const fam of weightsFamilies) {
+    const [tpls, games] = await Promise.all([dbNewTemplates(fam.id), dbNewGames(fam.id)]);
+    weightsTemplates[fam.id] = tpls;
+    weightsGames[fam.id] = games;
+  }
+  weightsLoaded = true;
+  status = null;
+  render();
+}
+
+async function saveTier(familyId, templateId, newTier, familyCode, templateKey) {
+  const tier = parseInt(newTier, 10);
+  if (!sb) { alert("Supabase not configured"); return; }
+  const { error } = await sb.from("tally_templates").update({ tier }).eq("id", templateId);
+  if (error) {
+    status = { ok: false, msg: "❌ Failed to save: " + error.message };
+  } else {
+    const tpls = weightsTemplates[familyId] || [];
+    const idx = tpls.findIndex(t => t.id === templateId);
+    if (idx !== -1) tpls[idx] = Object.assign({}, tpls[idx], { tier });
+    status = { ok: true, msg: `✅ ${familyCode} / ${templateKey} → Tier ${tier}` };
+    setTimeout(() => { status = null; render(); }, 2000);
+  }
+  render();
+}
+
+async function saveGameTier(familyId, gameRowId, newTier, familyCode, originalId) {
+  const tier = parseInt(newTier, 10);
+  if (!sb) { alert("Supabase not configured"); return; }
+  const { error } = await sb.from("tally_games").update({ tier }).eq("id", gameRowId);
+  if (error) {
+    status = { ok: false, msg: "❌ Failed to save: " + error.message };
+  } else {
+    const games = weightsGames[familyId] || [];
+    const idx = games.findIndex(g => g.id === gameRowId);
+    if (idx !== -1) games[idx] = Object.assign({}, games[idx], { tier });
+    status = { ok: true, msg: `✅ ${familyCode} / game ${originalId} → Tier ${tier}` };
+    setTimeout(() => { status = null; render(); }, 2000);
+  }
+  render();
+}
+
+function toggleExpand(key) {
+  weightsExpanded[key] = !weightsExpanded[key];
+  // <details> toggles itself; we just track state so re-renders preserve open/closed
+}
+
+async function applyTemplateTierToGames(familyId, templateKey, tier, familyCode) {
+  if (!sb) { alert("Supabase not configured"); return; }
+  const games = (weightsGames[familyId] || []).filter(g =>
+    g.finished && (g.game_key === templateKey || (g.game_key === "custom" && g.game_name === templateKey))
+  );
+  if (!games.length) { alert("No matching games"); return; }
+  if (!confirm(`Set tier ${tier} on ${games.length} past game${games.length===1?"":"s"} of "${templateKey}" in ${familyCode}? This overwrites individual game tiers.`)) return;
+  status = { ok: true, msg: `Applying tier ${tier} to ${games.length} games…` };
+  render();
+  const ids = games.map(g => g.id);
+  const { error } = await sb.from("tally_games").update({ tier }).in("id", ids);
+  if (error) {
+    status = { ok: false, msg: "❌ Failed: " + error.message };
+  } else {
+    games.forEach(g => { g.tier = tier; });
+    weightsExpanded[familyId + ":" + templateKey] = true;
+    status = { ok: true, msg: `✅ ${familyCode} / ${templateKey} → ${games.length} games set to T${tier}` };
+    setTimeout(() => { status = null; render(); }, 3000);
+  }
+  render();
 }
 
 // ─── Init ────────────────────────────────────────
