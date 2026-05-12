@@ -182,6 +182,20 @@ var db2 = {
       await db2.saveGame(familyId, games[i]);
     }
   },
+  // Narrow update used by rename/dupe-merge: only player/team identity fields.
+  // Avoids overwriting tier, scoring config, etc. with stale in-memory values.
+  async updateGamePlayers(familyId, games) {
+    if (!sb) return;
+    for (var i = 0; i < games.length; i++) {
+      var g = games[i];
+      try {
+        await sb.from("tally_games").update({
+          players: g.players || [],
+          teams: g.teams || null,
+        }).eq("original_id", g.id).eq("family_id", familyId);
+      } catch {}
+    }
+  },
 
   // ── Row Converters ──
   gameToRow: function(g) {

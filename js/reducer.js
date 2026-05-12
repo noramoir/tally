@@ -88,6 +88,10 @@ function reducer(state, action) {
       var g = newGame(action.gameKey, action.players, action.cats, action.customName, action.customEmoji, action.teamMode, action.teams, action.scoringType, action.maxScore, state.user, state.familyUsers, action.lowWins);
       var templates = Object.assign({}, state.templates);
       var tKey = action.gameKey === "custom" ? (action.customName || "Custom Game") : action.gameKey;
+      // Preserve manually-set tier from stored template instead of using the config default
+      if (templates[tKey] && templates[tKey].tier) {
+        g = Object.assign({}, g, { tier: templates[tKey].tier });
+      }
       if (!templates[tKey]) {
         templates[tKey] = {
           gameKey: action.gameKey, name: g.gameName, gameName: g.gameName, emoji: g.emoji,
